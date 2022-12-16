@@ -8,7 +8,7 @@ the DMA channel 7 interrupt fires.</p>
 
 <div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">use </span>imxrt_dma::{channel::Channel, memcpy};
 
-<span class="kw">const </span>DMA: imxrt_dma::Dma = <span class="kw">unsafe </span>{ imxrt_dma::Dma::new(core::ptr::null(), core::ptr::null(), <span class="number">32</span>) };
+<span class="kw">static </span>DMA: imxrt_dma::Dma&lt;<span class="number">32</span>&gt; = <span class="kw">unsafe </span>{ imxrt_dma::Dma::new(core::ptr::null(), core::ptr::null()) };
 <span class="comment">// #[cortex_m_rt::interrupt]
 </span><span class="kw">fn </span>DMA7() {
     <span class="comment">// Safety: DMA channel 7 valid

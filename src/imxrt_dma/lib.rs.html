@@ -93,6 +93,7 @@
 <span id="93">93</span>
 <span id="94">94</span>
 <span id="95">95</span>
+<span id="96">96</span>
 </pre><pre class="rust"><code><span class="doccomment">//! Direct Memory Access (DMA) driver for i.MX RT processors
 //!
 //! `imxrt-dma` provides
@@ -151,13 +152,16 @@
 ///
 /// `Dma` allocates [`Channel`](channel::Channel)s. `Channel` provides
 /// the interface for scheduling transfers.
-</span><span class="kw">pub struct </span>Dma {
+</span><span class="kw">pub struct </span>Dma&lt;<span class="kw">const </span>CHANNELS: usize&gt; {
     controller: ral::Static&lt;ral::dma::RegisterBlock&gt;,
     multiplexer: ral::Static&lt;ral::dmamux::RegisterBlock&gt;,
-    max_channels: usize,
+    wakers: [SharedWaker; CHANNELS],
 }
 
-<span class="kw">impl </span>Dma {
+<span class="comment">// Safety: OK to allocate a DMA driver in a static context.
+</span><span class="kw">unsafe impl</span>&lt;<span class="kw">const </span>CHANNELS: usize&gt; Sync <span class="kw">for </span>Dma&lt;CHANNELS&gt; {}
+
+<span class="kw">impl</span>&lt;<span class="kw">const </span>CHANNELS: usize&gt; Dma&lt;CHANNELS&gt; {
     <span class="doccomment">/// Create the DMA driver.
     ///
     /// Note that this can evaluate at compile time. Consider using this to expose
@@ -176,17 +180,15 @@
     ///
     /// An incorrect `max_channels` value prevents proper bounds checking when allocating
     /// channels. This may result in DMA channels that point to invalid memory.
-    </span><span class="kw">pub const unsafe fn </span>new(
-        controller: <span class="kw-2">*const </span>(),
-        multiplexer: <span class="kw-2">*const </span>(),
-        max_channels: usize,
-    ) -&gt; <span class="self">Self </span>{
+    </span><span class="kw">pub const unsafe fn </span>new(controller: <span class="kw-2">*const </span>(), multiplexer: <span class="kw-2">*const </span>()) -&gt; <span class="self">Self </span>{
         <span class="self">Self </span>{
             controller: ral::Static(controller.cast()),
             multiplexer: ral::Static(multiplexer.cast()),
-            max_channels,
+            wakers: [NO_WAKER; CHANNELS],
         }
     }
 }
+
+<span class="kw">use </span>interrupt::{SharedWaker, NO_WAKER};
 </code></pre></div>
 </section></div></main><div id="rustdoc-vars" data-root-path="../../" data-current-crate="imxrt_dma" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.66.0 (69f9c33d7 2022-12-12)" ></div></body></html>

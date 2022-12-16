@@ -599,6 +599,9 @@
 <span id="599">599</span>
 <span id="600">600</span>
 <span id="601">601</span>
+<span id="602">602</span>
+<span id="603">603</span>
+<span id="604">604</span>
 </pre><pre class="rust"><code><span class="doccomment">//! DMA channels
 //!
 //! `channel` contains the DMA [`Channel`] type, along with helper functions for
@@ -614,7 +617,7 @@
     Error,
 };
 
-<span class="kw">impl </span><span class="kw">super</span>::Dma {
+<span class="kw">impl</span>&lt;<span class="kw">const </span>CHANNELS: usize&gt; <span class="kw">super</span>::Dma&lt;CHANNELS&gt; {
     <span class="doccomment">/// Creates the DMA channel described by `index`.
     ///
     /// # Safety
@@ -626,12 +629,13 @@
     /// # Panics
     ///
     /// Panics if `index` is greater than or equal to the maximum number of channels.
-    </span><span class="kw">pub unsafe fn </span>channel(<span class="kw-2">&amp;</span><span class="self">self</span>, index: usize) -&gt; Channel {
-        <span class="macro">assert!</span>(index &lt; <span class="self">self</span>.max_channels);
+    </span><span class="kw">pub unsafe fn </span>channel(<span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span><span class="self">self</span>, index: usize) -&gt; Channel {
+        <span class="macro">assert!</span>(index &lt; CHANNELS);
         Channel {
             index,
             registers: <span class="self">self</span>.controller,
             multiplexer: <span class="self">self</span>.multiplexer,
+            waker: <span class="kw-2">&amp;</span><span class="self">self</span>.wakers[index],
         }
     }
 }
@@ -650,6 +654,8 @@
     </span>registers: Static&lt;dma::RegisterBlock&gt;,
     <span class="doccomment">/// Reference to the DMA multiplexer
     </span>multiplexer: Static&lt;dmamux::RegisterBlock&gt;,
+    <span class="doccomment">/// This channel&#39;s waker.
+    </span><span class="kw">pub</span>(<span class="kw">crate</span>) waker: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span><span class="kw">super</span>::SharedWaker,
 }
 
 <span class="kw">impl </span>Channel {

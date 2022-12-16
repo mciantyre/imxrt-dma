@@ -174,51 +174,6 @@
 <span id="174">174</span>
 <span id="175">175</span>
 <span id="176">176</span>
-<span id="177">177</span>
-<span id="178">178</span>
-<span id="179">179</span>
-<span id="180">180</span>
-<span id="181">181</span>
-<span id="182">182</span>
-<span id="183">183</span>
-<span id="184">184</span>
-<span id="185">185</span>
-<span id="186">186</span>
-<span id="187">187</span>
-<span id="188">188</span>
-<span id="189">189</span>
-<span id="190">190</span>
-<span id="191">191</span>
-<span id="192">192</span>
-<span id="193">193</span>
-<span id="194">194</span>
-<span id="195">195</span>
-<span id="196">196</span>
-<span id="197">197</span>
-<span id="198">198</span>
-<span id="199">199</span>
-<span id="200">200</span>
-<span id="201">201</span>
-<span id="202">202</span>
-<span id="203">203</span>
-<span id="204">204</span>
-<span id="205">205</span>
-<span id="206">206</span>
-<span id="207">207</span>
-<span id="208">208</span>
-<span id="209">209</span>
-<span id="210">210</span>
-<span id="211">211</span>
-<span id="212">212</span>
-<span id="213">213</span>
-<span id="214">214</span>
-<span id="215">215</span>
-<span id="216">216</span>
-<span id="217">217</span>
-<span id="218">218</span>
-<span id="219">219</span>
-<span id="220">220</span>
-<span id="221">221</span>
 </pre><pre class="rust"><code><span class="doccomment">//! DMA interrupt support
 
 </span><span class="kw">use crate</span>::{channel::Channel, Error};
@@ -233,7 +188,7 @@
 
 <span class="kw">use </span>cortex_m::interrupt::{<span class="self">self</span>, Mutex};
 
-<span class="kw">impl </span><span class="kw">super</span>::Dma {
+<span class="kw">impl</span>&lt;<span class="kw">const </span>CHANNELS: usize&gt; <span class="kw">super</span>::Dma&lt;CHANNELS&gt; {
     <span class="doccomment">/// Handle a DMA interrupt
     ///
     /// Checks the interrupt status for the channel identified by `channel`.
@@ -244,8 +199,8 @@
     ///
     /// ```
     /// use imxrt_dma::Dma;
-    /// const DMA: Dma = // Handle to DMA driver.
-    /// # unsafe { Dma::new(core::ptr::null(), core::ptr::null(), 32) };
+    /// static DMA: Dma&lt;32&gt; = // Handle to DMA driver.
+    /// # unsafe { Dma::new(core::ptr::null(), core::ptr::null()) };
     ///
     /// // #[cortex_m_rt::interrupt]
     /// fn DMA7_DMA23() {
@@ -268,7 +223,7 @@
     ///
     /// Panics if `channel` is greater than or equal to the maximum number of channels.
     </span><span class="attribute">#[inline(always)]
-    </span><span class="kw">pub unsafe fn </span>on_interrupt(<span class="kw-2">&amp;</span><span class="self">self</span>, channel: usize) {
+    </span><span class="kw">pub unsafe fn </span>on_interrupt(<span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span><span class="self">self</span>, channel: usize) {
         <span class="kw">let </span>channel = <span class="self">self</span>.channel(channel);
         <span class="kw">if </span>channel.is_interrupt() {
             channel.clear_interrupt();
@@ -276,7 +231,7 @@
 
         <span class="kw">if </span>channel.is_complete() | channel.is_error() {
             interrupt::free(|cs| {
-                <span class="kw">let </span>waker = WAKERS[channel.channel()].borrow(cs);
+                <span class="kw">let </span>waker = <span class="self">self</span>.wakers[channel.channel()].borrow(cs);
                 <span class="kw">let </span><span class="kw-2">mut </span>waker = waker.borrow_mut();
                 <span class="kw">if let </span><span class="prelude-val">Some</span>(waker) = waker.take() {
                     waker.wake();
@@ -284,59 +239,11 @@
             });
         }
     }
-
-    <span class="doccomment">/// Handle a DMA error on one or more channels
-    ///
-    /// `on_error` will find all DMA channels below `max_channel` that have
-    /// an error. `on_error` then wakes that channel&#39;s waker, if it exists.
-    ///
-    /// `max_channel` is the total number of channels, starting from channel 0,
-    /// that you want to check for errors. This should be 32, or 16 on a system
-    /// with half the normal DMA channels. However, you may specify fewer channels
-    /// if you only use a handful of channels.
-    ///
-    /// Consider calling `on_error` in the DMA error interrupt:
-    ///
-    /// ```
-    /// use imxrt_dma::Dma;
-    /// const DMA: Dma = // Handle to DMA driver
-    /// # unsafe { Dma::new(core::ptr::null(), core::ptr::null(), 32) };
-    ///
-    /// // #[cortex_m_rt::interrupt]
-    /// fn DMA_ERROR() {
-    ///     // Safety: on an i.MX RT 1062 chip, there are
-    ///     // 32 DMA channels. This usage is valid.
-    ///     // This usage is NOT valid for an i.MX RT 1011
-    ///     // chip, which only has 16 DMA channels.
-    ///     unsafe { DMA.on_error() };
-    /// }
-    /// ```
-    ///
-    /// # Safety
-    ///
-    /// `on_error` constructs a channel in order to check its error.
-    </span><span class="attribute">#[inline(always)]
-    </span><span class="kw">pub unsafe fn </span>on_error(<span class="kw-2">&amp;</span><span class="self">self</span>) {
-        interrupt::free(|cs| {
-            (<span class="number">0</span>..<span class="self">self</span>.max_channels)
-                .map(|chan| <span class="self">self</span>.channel(chan))
-                .filter(|chan| chan.is_error())
-                .flat_map(|channel| {
-                    <span class="kw">let </span>waker = WAKERS[channel.channel()].borrow(cs);
-                    <span class="kw">let </span><span class="kw-2">mut </span>waker = waker.borrow_mut();
-                    waker.take()
-                })
-                .for_each(|waker| {
-                    waker.wake();
-                })
-        });
-    }
 }
 
-<span class="kw">type </span>SharedWaker = Mutex&lt;RefCell&lt;<span class="prelude-ty">Option</span>&lt;Waker&gt;&gt;&gt;;
+<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">type </span>SharedWaker = Mutex&lt;RefCell&lt;<span class="prelude-ty">Option</span>&lt;Waker&gt;&gt;&gt;;
 <span class="attribute">#[allow(clippy::declare_interior_mutable_const)] </span><span class="comment">// Very convenient, and usage for static init deemed OK in clippy docs
-</span><span class="kw">const </span>NO_WAKER: SharedWaker = Mutex::new(RefCell::new(<span class="prelude-val">None</span>));
-<span class="kw">static </span>WAKERS: [SharedWaker; <span class="number">32</span>] = [NO_WAKER; <span class="number">32</span>];
+</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">const </span>NO_WAKER: SharedWaker = Mutex::new(RefCell::new(<span class="prelude-val">None</span>));
 
 <span class="doccomment">/// The core DMA transfer future
 ///
@@ -347,8 +254,7 @@
 /// To cancel a transfer, drop the `Transfer`.
 ///
 /// If you&#39;ve enabled DMA interrupts, consider using [`on_interrupt`](crate::Dma::on_interrupt)
-/// and [`on_error`](crate::Dma::on_error) to wake an executor when the DMA transfer completes,
-/// or the DMA controller observes an error. The interrupt interface assumes that you&#39;ve
+/// to wake an executor when the DMA transfer completes, The interrupt interface assumes that you&#39;ve
 ///
 /// - configured your channel to generate interrupts
 /// - registered a DMA ISR with your embedded runtime
@@ -371,7 +277,7 @@
 /// ```no_run
 /// use imxrt_dma::{channel::Channel, Transfer};
 ///
-/// # const DMA: imxrt_dma::Dma = unsafe { imxrt_dma::Dma::new(core::ptr::null(), core::ptr::null(), 32) };
+/// # static DMA: imxrt_dma::Dma&lt;32&gt; = unsafe { imxrt_dma::Dma::new(core::ptr::null(), core::ptr::null()) };
 /// let my_channel: Channel = // Acquire your channel...
 ///     # unsafe { DMA.channel(0) };
 /// // Properly prepare your transfer...
@@ -405,13 +311,17 @@
     <span class="kw">type </span>Output = <span class="prelude-ty">Result</span>&lt;(), Error&gt;;
     <span class="kw">fn </span>poll(<span class="self">self</span>: Pin&lt;<span class="kw-2">&amp;mut </span><span class="self">Self</span>&gt;, cx: <span class="kw-2">&amp;mut </span>Context&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; Poll&lt;<span class="self">Self</span>::Output&gt; {
         interrupt::free(|cs| {
-            <span class="kw">let </span>waker = WAKERS[<span class="self">self</span>.channel.channel()].borrow(cs);
+            <span class="kw">let </span>waker = <span class="self">self</span>.channel.waker.borrow(cs);
             <span class="kw">let </span><span class="kw-2">mut </span>waker = waker.borrow_mut();
             <span class="kw-2">*</span>waker = <span class="prelude-val">Some</span>(cx.waker().clone());
         });
 
         <span class="kw">loop </span>{
-            <span class="kw">if </span><span class="self">self</span>.channel.is_error() {
+            <span class="comment">// This driver is only expecting to cache synchronous errors
+            // (those that manifest once we enable the transfer). If there
+            // is a misconfiguration that only the hardware detects, we expect
+            // to see it as soon as we loop back around after the enable.
+            </span><span class="kw">if </span><span class="self">self</span>.channel.is_error() {
                 <span class="kw">let </span>es = <span class="self">self</span>.channel.error_status();
                 <span class="self">self</span>.channel.clear_error();
                 <span class="kw">return </span>Poll::Ready(<span class="prelude-val">Err</span>(es));
@@ -434,7 +344,7 @@
         <span class="self">self</span>.channel.clear_complete();
         <span class="self">self</span>.channel.clear_error();
         interrupt::free(|cs| {
-            <span class="kw">let </span>waker = WAKERS[<span class="self">self</span>.channel.channel()].borrow(cs);
+            <span class="kw">let </span>waker = <span class="self">self</span>.channel.waker.borrow(cs);
             <span class="kw">let </span><span class="kw-2">mut </span>waker = waker.borrow_mut();
             <span class="kw-2">*</span>waker = <span class="prelude-val">None</span>;
         });

@@ -151,7 +151,7 @@
 /// ```no_run
 /// use imxrt_dma::{channel::Channel, memcpy};
 ///
-/// const DMA: imxrt_dma::Dma = unsafe { imxrt_dma::Dma::new(core::ptr::null(), core::ptr::null(), 32) };
+/// static DMA: imxrt_dma::Dma&lt;32&gt; = unsafe { imxrt_dma::Dma::new(core::ptr::null(), core::ptr::null()) };
 /// // #[cortex_m_rt::interrupt]
 /// fn DMA7() {
 ///     // Safety: DMA channel 7 valid
