@@ -94,25 +94,94 @@
 <span id="94">94</span>
 <span id="95">95</span>
 <span id="96">96</span>
-</pre><pre class="rust"><code><span class="doccomment">//! Direct Memory Access (DMA) driver for i.MX RT processors
+<span id="97">97</span>
+<span id="98">98</span>
+<span id="99">99</span>
+<span id="100">100</span>
+<span id="101">101</span>
+<span id="102">102</span>
+<span id="103">103</span>
+<span id="104">104</span>
+<span id="105">105</span>
+<span id="106">106</span>
+<span id="107">107</span>
+<span id="108">108</span>
+<span id="109">109</span>
+<span id="110">110</span>
+<span id="111">111</span>
+<span id="112">112</span>
+<span id="113">113</span>
+<span id="114">114</span>
+<span id="115">115</span>
+<span id="116">116</span>
+<span id="117">117</span>
+<span id="118">118</span>
+<span id="119">119</span>
+<span id="120">120</span>
+<span id="121">121</span>
+<span id="122">122</span>
+<span id="123">123</span>
+<span id="124">124</span>
+<span id="125">125</span>
+<span id="126">126</span>
+<span id="127">127</span>
+<span id="128">128</span>
+<span id="129">129</span>
+<span id="130">130</span>
+<span id="131">131</span>
+</pre><pre class="rust"><code><span class="doccomment">//! Direct Memory Access (DMA) driver for i.MX RT processors.
 //!
 //! `imxrt-dma` provides
 //!
-//! - an unsafe API for defining and scheduling transfers with DMA `Channel`s
-//!   and `Transfer`s
+//! - an unsafe API for defining and scheduling transfers with DMA `Channel`s.
 //! - safe DMA futures for memcpy, peripheral-to-memory, and memory-to-peripheral
-//!   transfers
+//!   transfers.
 //!
-//! This DMA driver may be re-exported from a HAL. If it is, you should consider
-//! using the safer APIs provided by your HAL.
+//! This DMA driver may be re-exported from a hardware abstraction layer
+//! (HAL). If it is, you should use the safer APIs provided by your HAL.
 //!
-//! # Portability
+//! # Getting started
 //!
-//! This DMA driver works across all considered i.MX RT variants (1010 and 1060
-//! family). You must make sure that the DMA channel you&#39;re creating is valid for
-//! your i.MX RT processor. This only matters on i.MX RT 1010 processors, which
-//! only support 16 DMA channels. Creating an invalid channel for your 1010 processor
-//! will result in a channel that references reserved memory.
+//! To allocate a [`Dma`](crate::Dma) driver, you&#39;ll need to know
+//!
+//! 1. the location of the DMA controller registers.
+//! 2. the location of the DMAMUX registers.
+//! 3. the number of DMA channels supported by your chip.
+//!
+//! These parameters depend on the i.MX RT chip you&#39;re targeting. If you&#39;re
+//! already using [`imxrt-ral`](https://docs.rs/imxrt-ral), consider using the
+//! `DMA` and `DMAMUX` constants for the addresses. You&#39;re always responsible
+//! for configuring the number of DMA channels.
+//!
+//! With those three parameters, assign a `Dma` to a static. Then, use that
+//! object to create DMA [`Channel`](crate::channel::Channel)s.
+//!
+//! ```
+//! use imxrt_dma::Dma;
+//! # const DMA_PTR: *const () = core::ptr::null() as _;
+//! # const DMAMUX_PTR: *const () = core::ptr::null() as  _;
+//!
+//! // Safety: addresses and channel count are valid for this target.
+//! static DMA: Dma&lt;32&gt; = unsafe { Dma::new(DMA_PTR, DMAMUX_PTR) };
+//!
+//! // Safety: we only allocate one DMA channel 7 object.
+//! let mut channel = unsafe { DMA.channel(7) };
+//! ```
+//!
+//! Once you have a channel, you can use the higher-level DMA APIs, like
+//!
+//! - [`memcpy`](crate::memcpy::memcpy) for memory copies.
+//! - [`write`](crate::peripheral::write) to transmit data from memory to
+//! a peripheral.
+//! - [`read`](crate::peripheral::read) to receive data from a peripheral.
+//! - [`full_duplex`](crate::peripheral::full_duplex) to read / write with a
+//! peripheral using a single buffer.
+//!
+//! Peripheral transfers depends on a peripheral&#39;s DMA support. These are signaled
+//! through various [`peripheral`](crate::peripheral) traits.
+//!
+//! For a lower-level API, use the [`channel`](crate::channel) objects and helper
+//! functions.
 //!
 //! ### License
 //!
@@ -145,7 +214,7 @@
 <span class="doccomment">/// A DMA result
 </span><span class="kw">pub type </span><span class="prelude-ty">Result</span>&lt;T&gt; = core::result::Result&lt;T, Error&gt;;
 
-<span class="doccomment">/// A DMA peripheral.
+<span class="doccomment">/// A DMA driver.
 ///
 /// This DMA driver manages the DMA controller and the multiplexer.
 /// It&#39;s configured with pointers to both peripherals.
@@ -164,22 +233,23 @@
 <span class="kw">impl</span>&lt;<span class="kw">const </span>CHANNELS: usize&gt; Dma&lt;CHANNELS&gt; {
     <span class="doccomment">/// Create the DMA driver.
     ///
-    /// Note that this can evaluate at compile time. Consider using this to expose
-    /// a `DMA` constant through your higher-level API that you can use to allocate
-    /// DMA channels.
+    /// Note that this can evaluate at compile time. Consider using this to
+    /// expose a `Dma` through your higher-level API that you can use to
+    /// allocate DMA channels.
     ///
-    /// `max_channels` specifies the total number of channels supported by the DMA
+    /// `CHANNELS` specifies the total number of channels supported by the DMA
     /// controller. It&#39;s referenced when allocating channels.
     ///
     /// # Safety
     ///
-    /// Caller must make sure that `controller` is a pointer to the start of the DMA
-    /// controller register block. Caller must also make sure that `multiplexer` is
-    /// a pointer to the start of the DMA multiplexer. Both pointers must be valid
-    /// for your MCU.
+    /// Caller must make sure that `controller` is a pointer to the start of the
+    /// DMA controller register block. Caller must also make sure that
+    /// `multiplexer` is a pointer to the start of the DMA multiplexer. Both
+    /// pointers must be valid for your MCU.
     ///
-    /// An incorrect `max_channels` value prevents proper bounds checking when allocating
-    /// channels. This may result in DMA channels that point to invalid memory.
+    /// An incorrect `CHANNELS` value prevents proper bounds checking when
+    /// allocating channels. This may result in DMA channels that point to
+    /// invalid memory.
     </span><span class="kw">pub const unsafe fn </span>new(controller: <span class="kw-2">*const </span>(), multiplexer: <span class="kw-2">*const </span>()) -&gt; <span class="self">Self </span>{
         <span class="self">Self </span>{
             controller: ral::Static(controller.cast()),

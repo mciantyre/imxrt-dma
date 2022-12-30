@@ -8,10 +8,9 @@ the DMA channel 7 interrupt fires.</p>
 
 <div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">use </span>imxrt_dma::{channel::Channel, memcpy};
 
-<span class="kw">static </span>DMA: imxrt_dma::Dma&lt;<span class="number">32</span>&gt; = <span class="kw">unsafe </span>{ imxrt_dma::Dma::new(core::ptr::null(), core::ptr::null()) };
 <span class="comment">// #[cortex_m_rt::interrupt]
 </span><span class="kw">fn </span>DMA7() {
-    <span class="comment">// Safety: DMA channel 7 valid
+    <span class="comment">// Safety: DMA channel 7 valid and used by a future.
     </span><span class="kw">unsafe </span>{ DMA.on_interrupt(<span class="number">7</span>) };
 }
 
@@ -22,6 +21,5 @@ the DMA channel 7 interrupt fires.</p>
 </span><span class="kw">let </span>source = [<span class="number">4u32</span>, <span class="number">5</span>, <span class="number">6</span>, <span class="number">7</span>, <span class="number">8</span>];
 <span class="kw">let </span><span class="kw-2">mut </span>destination = [<span class="number">0</span>; <span class="number">5</span>];
 
-<span class="kw">let </span>transfer = memcpy::memcpy(<span class="kw-2">&amp;</span>source, <span class="kw-2">&amp;mut </span>destination, <span class="kw-2">&amp;mut </span>channel_7);
-executor::wfi(transfer);</code></pre></div>
+memcpy::memcpy(<span class="kw-2">&amp;</span>source, <span class="kw-2">&amp;mut </span>destination, <span class="kw-2">&amp;mut </span>channel_7).<span class="kw">await</span><span class="question-mark">?</span>;</code></pre></div>
 </div></details></section></div></main><div id="rustdoc-vars" data-root-path="../../" data-current-crate="imxrt_dma" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.66.0 (69f9c33d7 2022-12-12)" ></div></body></html>

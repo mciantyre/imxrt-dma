@@ -173,7 +173,6 @@
 <span id="173">173</span>
 <span id="174">174</span>
 <span id="175">175</span>
-<span id="176">176</span>
 </pre><pre class="rust"><code><span class="doccomment">//! DMA interrupt support
 
 </span><span class="kw">use crate</span>::{channel::Channel, Error};
@@ -192,8 +191,8 @@
     <span class="doccomment">/// Handle a DMA interrupt
     ///
     /// Checks the interrupt status for the channel identified by `channel`.
-    /// If the channel completed its transfer, or it&#39;s in an error state,
-    /// `on_interrupt` wakes the channel&#39;s waker.
+    /// If the channel completed its transfer, `on_interrupt` wakes the channel&#39;s
+    /// waker.
     ///
     /// Consider calling `on_interrupt` in a DMA channel&#39;s interrupt handler:
     ///
@@ -215,9 +214,9 @@
     ///
     /// # Safety
     ///
-    /// Caller must ensure that `on_interrupt` is called in the correct interrupt
-    /// handler. Caller must ensure that `channel` is valid for the given system,
-    /// and for the interrupt handler.
+    /// This should only be used when the associated DMA channel is exclusively referenced
+    /// by a DMA transfer future. Caller must ensure that `on_interrupt` is called in
+    /// the correct interrupt handler.
     ///
     /// # Panics
     ///
@@ -268,8 +267,8 @@
 /// using
 ///
 /// - [`Memcpy`](crate::memcpy::Memcpy) for buffer-to-buffer DMA transfers
-/// - [`Rx`](crate::peripheral::Rx) for peripheral-to-memory DMA transfers
-/// - [`Tx`](crate::peripheral::Tx) for memory-to-peripheral DMA transfers
+/// - [`Read`](crate::peripheral::Read) for peripheral-to-memory DMA transfers
+/// - [`Write`](crate::peripheral::Write) for memory-to-peripheral DMA transfers
 ///
 /// `Transfer` is designed to the DMA `Channel` public interface. If you need to implement
 /// your own transfer future, you may do so.
@@ -278,14 +277,13 @@
 /// use imxrt_dma::{channel::Channel, Transfer};
 ///
 /// # static DMA: imxrt_dma::Dma&lt;32&gt; = unsafe { imxrt_dma::Dma::new(core::ptr::null(), core::ptr::null()) };
+/// # async fn f() -&gt; imxrt_dma::Result&lt;()&gt; {
 /// let my_channel: Channel = // Acquire your channel...
 ///     # unsafe { DMA.channel(0) };
 /// // Properly prepare your transfer...
 /// // Safety: transfer properly prepared
-/// let my_transfer = unsafe { Transfer::new(&amp;my_channel) };
-/// // Execute your transfer with a blocking executor...
-/// # mod executor { pub fn block&lt;F: core::future::Future&gt;(_: F) {} }
-/// executor::block(my_transfer);
+/// unsafe { Transfer::new(&amp;my_channel) }.await?;
+/// # Ok(()) }
 /// ```
 </span><span class="kw">pub struct </span>Transfer&lt;<span class="lifetime">&#39;a</span>&gt; {
     channel: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>Channel,
@@ -317,7 +315,7 @@
         });
 
         <span class="kw">loop </span>{
-            <span class="comment">// This driver is only expecting to cache synchronous errors
+            <span class="comment">// This driver is only expecting to catch synchronous errors
             // (those that manifest once we enable the transfer). If there
             // is a misconfiguration that only the hardware detects, we expect
             // to see it as soon as we loop back around after the enable.

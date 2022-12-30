@@ -357,7 +357,170 @@
 <span id="357">357</span>
 <span id="358">358</span>
 <span id="359">359</span>
-</pre><pre class="rust"><code><span class="doccomment">//! DMA support for hardware peripherals
+<span id="360">360</span>
+<span id="361">361</span>
+<span id="362">362</span>
+<span id="363">363</span>
+<span id="364">364</span>
+<span id="365">365</span>
+<span id="366">366</span>
+<span id="367">367</span>
+<span id="368">368</span>
+<span id="369">369</span>
+<span id="370">370</span>
+<span id="371">371</span>
+<span id="372">372</span>
+<span id="373">373</span>
+<span id="374">374</span>
+<span id="375">375</span>
+<span id="376">376</span>
+<span id="377">377</span>
+<span id="378">378</span>
+<span id="379">379</span>
+<span id="380">380</span>
+<span id="381">381</span>
+<span id="382">382</span>
+<span id="383">383</span>
+<span id="384">384</span>
+<span id="385">385</span>
+<span id="386">386</span>
+<span id="387">387</span>
+<span id="388">388</span>
+<span id="389">389</span>
+<span id="390">390</span>
+<span id="391">391</span>
+<span id="392">392</span>
+<span id="393">393</span>
+<span id="394">394</span>
+<span id="395">395</span>
+<span id="396">396</span>
+<span id="397">397</span>
+<span id="398">398</span>
+<span id="399">399</span>
+<span id="400">400</span>
+<span id="401">401</span>
+<span id="402">402</span>
+<span id="403">403</span>
+<span id="404">404</span>
+<span id="405">405</span>
+<span id="406">406</span>
+<span id="407">407</span>
+<span id="408">408</span>
+<span id="409">409</span>
+<span id="410">410</span>
+<span id="411">411</span>
+<span id="412">412</span>
+<span id="413">413</span>
+<span id="414">414</span>
+<span id="415">415</span>
+<span id="416">416</span>
+<span id="417">417</span>
+<span id="418">418</span>
+<span id="419">419</span>
+<span id="420">420</span>
+<span id="421">421</span>
+<span id="422">422</span>
+<span id="423">423</span>
+<span id="424">424</span>
+<span id="425">425</span>
+<span id="426">426</span>
+<span id="427">427</span>
+<span id="428">428</span>
+<span id="429">429</span>
+<span id="430">430</span>
+<span id="431">431</span>
+<span id="432">432</span>
+<span id="433">433</span>
+<span id="434">434</span>
+<span id="435">435</span>
+<span id="436">436</span>
+<span id="437">437</span>
+<span id="438">438</span>
+<span id="439">439</span>
+<span id="440">440</span>
+<span id="441">441</span>
+<span id="442">442</span>
+<span id="443">443</span>
+<span id="444">444</span>
+<span id="445">445</span>
+<span id="446">446</span>
+<span id="447">447</span>
+<span id="448">448</span>
+<span id="449">449</span>
+<span id="450">450</span>
+<span id="451">451</span>
+<span id="452">452</span>
+<span id="453">453</span>
+<span id="454">454</span>
+<span id="455">455</span>
+<span id="456">456</span>
+<span id="457">457</span>
+<span id="458">458</span>
+<span id="459">459</span>
+<span id="460">460</span>
+<span id="461">461</span>
+<span id="462">462</span>
+<span id="463">463</span>
+<span id="464">464</span>
+<span id="465">465</span>
+<span id="466">466</span>
+<span id="467">467</span>
+<span id="468">468</span>
+<span id="469">469</span>
+<span id="470">470</span>
+<span id="471">471</span>
+<span id="472">472</span>
+<span id="473">473</span>
+<span id="474">474</span>
+<span id="475">475</span>
+<span id="476">476</span>
+<span id="477">477</span>
+<span id="478">478</span>
+<span id="479">479</span>
+<span id="480">480</span>
+<span id="481">481</span>
+<span id="482">482</span>
+<span id="483">483</span>
+<span id="484">484</span>
+<span id="485">485</span>
+<span id="486">486</span>
+<span id="487">487</span>
+<span id="488">488</span>
+<span id="489">489</span>
+<span id="490">490</span>
+<span id="491">491</span>
+<span id="492">492</span>
+<span id="493">493</span>
+<span id="494">494</span>
+<span id="495">495</span>
+<span id="496">496</span>
+<span id="497">497</span>
+<span id="498">498</span>
+<span id="499">499</span>
+<span id="500">500</span>
+<span id="501">501</span>
+<span id="502">502</span>
+<span id="503">503</span>
+<span id="504">504</span>
+<span id="505">505</span>
+<span id="506">506</span>
+<span id="507">507</span>
+<span id="508">508</span>
+<span id="509">509</span>
+<span id="510">510</span>
+<span id="511">511</span>
+<span id="512">512</span>
+<span id="513">513</span>
+<span id="514">514</span>
+<span id="515">515</span>
+</pre><pre class="rust"><code><span class="doccomment">//! DMA support for hardware peripherals.
+//!
+//! If a driver is compatible with this API, it implements some or all of
+//! the traits in this module. Consult your HAL for more information.
+//!
+//! Each future documents when it resolves. To wake the executor, you can
+//! route the DMA channel&#39;s interrupt handler to [`on_interrupt()`](crate::Dma::on_interrupt).
+//! Otherwise, you can poll the future in a loop.
 
 </span><span class="kw">use super</span>::{
     channel::{<span class="self">self</span>, Channel, Configuration},
@@ -446,8 +609,10 @@
 
 <span class="doccomment">/// A DMA transfer that receives data from hardware
 ///
-/// See [`receive`](crate::peripheral::receive) to construct an `Rx`.
-</span><span class="kw">pub struct </span>Rx&lt;<span class="lifetime">&#39;a</span>, S, E&gt;
+/// The future resolves when the peripheral has provided all
+/// expected data. Use [`read()`](crate::peripheral::read) to construct
+/// this future.
+</span><span class="kw">pub struct </span>Read&lt;<span class="lifetime">&#39;a</span>, S, E&gt;
 <span class="kw">where
     </span>S: Source&lt;E&gt;,
     E: Element,
@@ -458,7 +623,7 @@
     _elem: PhantomData&lt;<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="kw-2">mut </span>E&gt;,
 }
 
-<span class="kw">impl</span>&lt;S, E&gt; Future <span class="kw">for </span>Rx&lt;<span class="lifetime">&#39;_</span>, S, E&gt;
+<span class="kw">impl</span>&lt;S, E&gt; Future <span class="kw">for </span>Read&lt;<span class="lifetime">&#39;_</span>, S, E&gt;
 <span class="kw">where
     </span>S: Source&lt;E&gt;,
     E: Element,
@@ -470,7 +635,7 @@
     }
 }
 
-<span class="kw">impl</span>&lt;S, E&gt; Drop <span class="kw">for </span>Rx&lt;<span class="lifetime">&#39;_</span>, S, E&gt;
+<span class="kw">impl</span>&lt;S, E&gt; Drop <span class="kw">for </span>Read&lt;<span class="lifetime">&#39;_</span>, S, E&gt;
 <span class="kw">where
     </span>S: Source&lt;E&gt;,
     E: Element,
@@ -482,7 +647,7 @@
     </span>}
 }
 
-<span class="kw">fn </span>prepare_receive&lt;S, E&gt;(channel: <span class="kw-2">&amp;mut </span>Channel, source: <span class="kw-2">&amp;mut </span>S, buffer: <span class="kw-2">&amp;mut </span>[E])
+<span class="kw">fn </span>prepare_read&lt;S, E&gt;(channel: <span class="kw-2">&amp;mut </span>Channel, source: <span class="kw-2">&amp;mut </span>S, buffer: <span class="kw-2">&amp;mut </span>[E])
 <span class="kw">where
     </span>S: Source&lt;E&gt;,
     E: Element,
@@ -505,18 +670,60 @@
     source.enable_source();
 }
 
-<span class="doccomment">/// Use a DMA channel to receive a `buffer` of elements from the source peripheral
-</span><span class="kw">pub fn </span>receive&lt;<span class="lifetime">&#39;a</span>, S, E&gt;(
+<span class="doccomment">/// Use a DMA channel to receive a `buffer` of elements from the source peripheral.
+///
+/// Consider using a DMA interrupt handler that calls [`on_interrupt()`](crate::Dma::on_interrupt)
+/// to wake the executor when the transfer completes. Otherwise, poll the future.
+///
+/// # Example
+///
+/// Receive 32 bytes from a LPUART peripheral. Wake the executor when the transfer completes.
+///
+/// ```no_run
+/// use imxrt_dma::{peripheral, channel::Channel};
+/// # static DMA: imxrt_dma::Dma&lt;32&gt; = unsafe { imxrt_dma::Dma::new(core::ptr::null(), core::ptr::null()) };
+/// # struct X;
+/// # unsafe impl peripheral::Source&lt;u8&gt; for X {
+/// #   fn source_signal(&amp;self) -&gt; u32 { 0 }
+/// #   fn source_address(&amp;self) -&gt; *const u8 { panic!() }
+/// #   fn enable_source(&amp;mut self) { panic!() }
+/// #   fn disable_source(&amp;mut self) { panic!() }
+/// # }
+///
+/// // #[cortex_m_rt::interrupt]
+/// fn DMA7() {
+///     // Safety: DMA channel 7 valid and used by a future.
+///     unsafe { DMA.on_interrupt(7) };
+/// }
+///
+/// # async fn f() -&gt; imxrt_dma::Result&lt;()&gt; {
+/// let mut lpuart = // A LPUART peripheral
+///     # X;
+/// let mut channel_7: Channel = // DMA channel 7
+///     # unsafe { DMA.channel(7) };
+/// channel_7.set_interrupt_on_completion(true);
+/// // TODO unmask interrupts in NVIC!
+///
+/// let mut buffer = [0u8; 32];
+///
+/// peripheral::read(
+///     &amp;mut channel_7,
+///     &amp;mut lpuart,
+///     &amp;mut buffer,
+/// ).await?;
+/// # Ok(()) }
+/// ```
+</span><span class="kw">pub fn </span>read&lt;<span class="lifetime">&#39;a</span>, S, E&gt;(
     channel: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="kw-2">mut </span>Channel,
     source: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="kw-2">mut </span>S,
     buffer: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="kw-2">mut </span>[E],
-) -&gt; Rx&lt;<span class="lifetime">&#39;a</span>, S, E&gt;
+) -&gt; Read&lt;<span class="lifetime">&#39;a</span>, S, E&gt;
 <span class="kw">where
     </span>S: Source&lt;E&gt;,
     E: Element,
 {
-    prepare_receive(channel, source, buffer);
-    Rx {
+    prepare_read(channel, source, buffer);
+    Read {
         channel,
         <span class="comment">// Safety: transfer is correctly defined
         </span>transfer: <span class="kw">unsafe </span>{ Transfer::new(channel) },
@@ -527,8 +734,9 @@
 
 <span class="doccomment">/// A DMA transfer that sends data to hardware
 ///
-/// See [`transfer`](crate::peripheral::transfer) to create a `Tx`.
-</span><span class="kw">pub struct </span>Tx&lt;<span class="lifetime">&#39;a</span>, D, E&gt;
+/// The future resolves when the device has sent all provided data.
+/// Use [`write()`](crate::peripheral::write) to construct this future.
+</span><span class="kw">pub struct </span>Write&lt;<span class="lifetime">&#39;a</span>, D, E&gt;
 <span class="kw">where
     </span>D: Destination&lt;E&gt;,
     E: Element,
@@ -539,7 +747,7 @@
     _elem: PhantomData&lt;<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>E&gt;,
 }
 
-<span class="kw">impl</span>&lt;D, E&gt; Future <span class="kw">for </span>Tx&lt;<span class="lifetime">&#39;_</span>, D, E&gt;
+<span class="kw">impl</span>&lt;D, E&gt; Future <span class="kw">for </span>Write&lt;<span class="lifetime">&#39;_</span>, D, E&gt;
 <span class="kw">where
     </span>D: Destination&lt;E&gt;,
     E: Element,
@@ -551,7 +759,7 @@
     }
 }
 
-<span class="kw">impl</span>&lt;D, E&gt; Drop <span class="kw">for </span>Tx&lt;<span class="lifetime">&#39;_</span>, D, E&gt;
+<span class="kw">impl</span>&lt;D, E&gt; Drop <span class="kw">for </span>Write&lt;<span class="lifetime">&#39;_</span>, D, E&gt;
 <span class="kw">where
     </span>D: Destination&lt;E&gt;,
     E: Element,
@@ -563,7 +771,7 @@
     </span>}
 }
 
-<span class="kw">fn </span>prepare_transfer&lt;D, E&gt;(channel: <span class="kw-2">&amp;mut </span>Channel, buffer: <span class="kw-2">&amp;</span>[E], destination: <span class="kw-2">&amp;mut </span>D)
+<span class="kw">fn </span>prepare_write&lt;D, E&gt;(channel: <span class="kw-2">&amp;mut </span>Channel, buffer: <span class="kw-2">&amp;</span>[E], destination: <span class="kw-2">&amp;mut </span>D)
 <span class="kw">where
     </span>D: Destination&lt;E&gt;,
     E: Element,
@@ -585,18 +793,61 @@
     destination.enable_destination();
 }
 
-<span class="doccomment">/// Use a DMA channel to send a `buffer` of data to the destination peripheral
-</span><span class="kw">pub fn </span>transfer&lt;<span class="lifetime">&#39;a</span>, D, E&gt;(
+<span class="doccomment">/// Use a DMA channel to send a `buffer` of data to the destination peripheral.
+///
+/// Consider using a DMA interrupt handler that calls [`on_interrupt()`](crate::Dma::on_interrupt)
+/// to wake the executor when the transfer completes. Otherwise, poll the future.
+///
+/// # Example
+///
+/// Send five bytes to a LPUART device. Wake the executor when the transfer completes.
+///
+/// ```no_run
+/// use imxrt_dma::{peripheral, channel::Channel};
+/// # static DMA: imxrt_dma::Dma&lt;32&gt; = unsafe { imxrt_dma::Dma::new(core::ptr::null(), core::ptr::null()) };
+/// # struct X;
+/// # unsafe impl peripheral::Destination&lt;u8&gt; for X {
+/// #   fn destination_signal(&amp;self) -&gt; u32 { 0 }
+/// #   fn destination_address(&amp;self) -&gt; *const u8 { panic!() }
+/// #   fn enable_destination(&amp;mut self) { panic!() }
+/// #   fn disable_destination(&amp;mut self) { panic!() }
+/// # }
+///
+/// // #[cortex_m_rt::interrupt]
+/// fn DMA7() {
+///     // Safety: DMA channel 7 valid and used by a future.
+///     unsafe { DMA.on_interrupt(7) };
+/// }
+///
+/// # async fn f() -&gt; imxrt_dma::Result&lt;()&gt; {
+/// let mut lpuart = // A LPUART peripheral
+///     # X;
+/// let mut channel_7: Channel = // DMA channel 7
+///     # unsafe { DMA.channel(7) };
+///
+/// channel_7.set_interrupt_on_completion(true);
+/// // TODO unmask interrupts in NVIC!
+///
+/// let buffer = [4u8, 5, 6, 7, 8];
+///
+/// peripheral::write(
+///     &amp;mut channel_7,
+///     &amp;buffer,
+///     &amp;mut lpuart,
+/// ).await?;
+/// # Ok(()) }
+/// ```
+</span><span class="kw">pub fn </span>write&lt;<span class="lifetime">&#39;a</span>, D, E&gt;(
     channel: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="kw-2">mut </span>Channel,
     buffer: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>[E],
     destination: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="kw-2">mut </span>D,
-) -&gt; Tx&lt;<span class="lifetime">&#39;a</span>, D, E&gt;
+) -&gt; Write&lt;<span class="lifetime">&#39;a</span>, D, E&gt;
 <span class="kw">where
     </span>D: Destination&lt;E&gt;,
     E: Element,
 {
-    prepare_transfer(channel, buffer, destination);
-    Tx {
+    prepare_write(channel, buffer, destination);
+    Write {
         channel,
         destination,
         <span class="comment">// Safety: transfer is correctly defined
@@ -622,7 +873,9 @@
 ///
 /// `FullDuplex` only works with [`Bidirectional`](crate::peripheral::Bidirectional)
 /// peripherals. The transfer acts on a single buffer, sending and receiving data
-/// element by element.
+/// element by element. It yields when all elements are sent and received.
+///
+/// To create this future, use [`full_duplex()`].
 </span><span class="kw">pub struct </span>FullDuplex&lt;<span class="lifetime">&#39;a</span>, P, E&gt;
 <span class="kw">where
     </span>P: Bidirectional&lt;E&gt;,
@@ -640,6 +893,65 @@
 
 <span class="doccomment">/// Perform a full-duplex DMA transfer using two DMA channels
 /// that read and write from a single buffer.
+///
+/// Consider using a DMA interrupt handler that calls [`on_interrupt()`](crate::Dma::on_interrupt)
+/// to wake the executor when the transfer completes. Otherwise, poll the future.
+///
+/// # Example
+///
+/// Perform a full-duplex transfer of five `u32`s with a LPSPI peripheral. Generate an interrupt
+/// after receiving the final LPSPI word.
+///
+/// ```no_run
+/// use imxrt_dma::{peripheral, channel::Channel};
+/// # static DMA: imxrt_dma::Dma&lt;32&gt; = unsafe { imxrt_dma::Dma::new(core::ptr::null(), core::ptr::null()) };
+/// # struct X;
+/// # unsafe impl peripheral::Source&lt;u32&gt; for X {
+/// #   fn source_signal(&amp;self) -&gt; u32 { 0 }
+/// #   fn source_address(&amp;self) -&gt; *const u32 { panic!() }
+/// #   fn enable_source(&amp;mut self) { panic!() }
+/// #   fn disable_source(&amp;mut self) { panic!() }
+/// # }
+/// # unsafe impl peripheral::Destination&lt;u32&gt; for X {
+/// #   fn destination_signal(&amp;self) -&gt; u32 { 0 }
+/// #   fn destination_address(&amp;self) -&gt; *const u32 { panic!() }
+/// #   fn enable_destination(&amp;mut self) { panic!() }
+/// #   fn disable_destination(&amp;mut self) { panic!() }
+/// # }
+/// # unsafe impl peripheral::Bidirectional&lt;u32&gt; for X {}
+///
+/// // #[cortex_m_rt::interrupt]
+/// fn DMA7() {
+///     // Safety: DMA channel 7 valid and used by a future.
+///     unsafe { DMA.on_interrupt(7) };
+/// }
+///
+/// # async fn f() -&gt; imxrt_dma::Result&lt;()&gt; {
+/// let mut lpspi = // A LPSPI peripheral
+///     # X;
+/// let mut channel_7: Channel = // DMA channel 7
+///     # unsafe { DMA.channel(7) };
+/// let mut channel_8: Channel = // DMA channel 8
+///     # unsafe { DMA.channel(8) };
+///
+/// // Using channel_7 for the receive data. Once we&#39;ve received
+/// // the last word from the LPSPI peripheral, generate an interrupt.
+/// channel_7.set_interrupt_on_completion(true);
+/// // Don&#39;t trigger an interrupt after we _send_ the last LPSPI
+/// // word from memory; we&#39;re still waiting for one word response.
+/// channel_8.set_interrupt_on_completion(false);
+/// // TODO unmask interrupts in NVIC!
+///
+/// let mut buffer = [4u32, 5, 6, 7, 8];
+///
+/// peripheral::full_duplex(
+///     &amp;mut channel_7,
+///     &amp;mut channel_8,
+///     &amp;mut lpspi,
+///     &amp;mut buffer,
+/// ).await?;
+/// # Ok(()) }
+/// ```
 </span><span class="kw">pub fn </span>full_duplex&lt;<span class="lifetime">&#39;a</span>, P, E&gt;(
     rx_channel: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="kw-2">mut </span>Channel,
     tx_channel: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="kw-2">mut </span>Channel,
@@ -650,8 +962,8 @@
     </span>P: Bidirectional&lt;E&gt;,
     E: Element,
 {
-    prepare_transfer(tx_channel, buffer, peripheral);
-    prepare_receive(rx_channel, peripheral, buffer);
+    prepare_write(tx_channel, buffer, peripheral);
+    prepare_read(rx_channel, peripheral, buffer);
 
     FullDuplex {
         rx_channel,

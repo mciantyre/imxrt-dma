@@ -151,13 +151,14 @@
 /// ```no_run
 /// use imxrt_dma::{channel::Channel, memcpy};
 ///
-/// static DMA: imxrt_dma::Dma&lt;32&gt; = unsafe { imxrt_dma::Dma::new(core::ptr::null(), core::ptr::null()) };
+/// # static DMA: imxrt_dma::Dma&lt;32&gt; = unsafe { imxrt_dma::Dma::new(core::ptr::null(), core::ptr::null()) };
 /// // #[cortex_m_rt::interrupt]
 /// fn DMA7() {
-///     // Safety: DMA channel 7 valid
+///     // Safety: DMA channel 7 valid and used by a future.
 ///     unsafe { DMA.on_interrupt(7) };
 /// }
 ///
+/// # async fn f() -&gt; imxrt_dma::Result&lt;()&gt; {
 /// let mut channel_7: Channel = // DMA channel 7
 ///     # unsafe { DMA.channel(7) };
 /// channel_7.set_interrupt_on_completion(true);
@@ -166,9 +167,8 @@
 /// let source = [4u32, 5, 6, 7, 8];
 /// let mut destination = [0; 5];
 ///
-/// let transfer = memcpy::memcpy(&amp;source, &amp;mut destination, &amp;mut channel_7);
-/// # mod executor { pub fn wfi(_: impl core::future::Future) {} }
-/// executor::wfi(transfer);
+/// memcpy::memcpy(&amp;source, &amp;mut destination, &amp;mut channel_7).await?;
+/// # Ok(()) }
 /// ```
 </span><span class="kw">pub fn </span>memcpy&lt;<span class="lifetime">&#39;a</span>, E: Element&gt;(
     source: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>[E],
