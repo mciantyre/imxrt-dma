@@ -5,6 +5,17 @@
 use super::RWRegister;
 
 /// DMA Transfer Control Descriptor (TCD)
+///
+/// This layout works for all eDMA implementations, including
+///
+/// - Most 1000 and 1170 MCUs. (Referred to as just eDMA.)
+/// - eDMA3 and eDMA4 on the 1180.
+///
+/// However, the *fields* may vary. See inline notes.
+///
+/// The TCD is technically larger in eDMA3 and eDMA4 IP blocks.
+/// There's more registers at the start. For programming purposes,
+/// they're otherwise identical.
 #[repr(C, align(32))]
 pub struct RegisterBlock {
     pub SADDR: RWRegister<u32>,
@@ -17,9 +28,31 @@ pub struct RegisterBlock {
     pub SLAST: RWRegister<i32>,
     pub DADDR: RWRegister<u32>,
     pub DOFF: RWRegister<i16>,
+    /// The minor loop channel link field may vary in size
+    /// depending on the implementation. Not worried right
+    /// now, since we don't support minor loop linking.
     pub CITER: RWRegister<u16>,
     pub DLAST_SGA: RWRegister<i32>,
+    /// These fields vary across all of eDMA, eDMA3 and
+    /// eDMA4!
+    ///
+    /// Major loop channel linking field size changes as
+    /// a function of the number of DMA channels.
+    ///
+    /// eDMA and eDMA3 have bandwidth control. eDMA4 has
+    /// transfer mode control for read-only / write-only
+    /// DMA transfers. Field is the same size.
+    ///
+    /// In the low byte, high nibble, eDMA has DONE and
+    /// ACTIVE. eDMA3 and eDMA4 have things we probably don't
+    /// need. Low byte, low nibble is the same.
+    ///
+    /// So we'll need to change how we handle DONE and
+    /// ACTIVE access. They can't always dispatch to this
+    /// register.
     pub CSR: RWRegister<u16>,
+    /// See CITER documentation note about eDMA3 bitfield
+    /// size when minor loop channel linking is enabled.
     pub BITER: RWRegister<u16>,
 }
 
@@ -114,6 +147,8 @@ pub mod CSR {
     }
 
     /// Channel Done
+    ///
+    /// Only available for eDMA!
     pub mod DONE {
         /// Offset (7 bits)
         pub const offset: u16 = 7;
@@ -128,6 +163,8 @@ pub mod CSR {
     }
 
     /// Bandwidth Control
+    ///
+    /// Only available for eDMA and eDMA3!
     pub mod BWC {
         /// Offset (14 bits)
         pub const offset: u16 = 14;
@@ -152,6 +189,8 @@ pub mod CSR {
     }
 
     /// Channel Active
+    ///
+    /// Only available for eDMA!
     pub mod ACTIVE {
         /// Offset (6 bits)
         pub const offset: u16 = 6;

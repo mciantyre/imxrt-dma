@@ -4,7 +4,9 @@ use super::{tcd, RORegister, RWRegister, WORegister};
 
 use core::ops::Index;
 
-/// DMA registers
+/// DMA registers.
+///
+/// This is only valid for eDMA!
 #[repr(C)]
 pub struct RegisterBlock {
     /// Control Register
@@ -70,7 +72,9 @@ impl Index<usize> for ChannelPriorityRegisters {
         //
         //   3, 2, 1, 0, 7, 6, 5, 4, 11, 10, 9, 8, ...
         //
-        // for all channels. NXP keeping us on our toes.
+        // for all channels. NXP keeping us on our toes. They're
+        // really keeping us on our toes, because this only applies
+        // to eDMA.
         let idx = 4 * (channel / 4) + (3 - (channel % 4));
         &self.0[idx]
     }

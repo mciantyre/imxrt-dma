@@ -71,6 +71,9 @@ impl Channel {
     pub unsafe fn enable(&self) {
         // Immutable write OK. No other methods directly modify ERQ.
         self.registers.SERQ.write(self.index as u8);
+        // eDMA3/4: dispatch to the TCD CHn_CSR. RMW on bit
+        // 0 to enable. Immutable write still OK: channel
+        // deemed unique, and it should be !Sync.
     }
 
     /// Returns the DMA channel number
@@ -88,6 +91,8 @@ impl Channel {
         let raw = BandwidthControl::raw(bandwidth);
         let tcd = self.tcd();
         ral::modify_reg!(crate::ral::tcd, tcd, CSR, BWC: raw);
+        // eDMA4: Not valid, and not sure where anything similar
+        // is. Could just remove, or return a "not supported" error.
     }
 
     /// Reset the transfer control descriptor owned by the DMA channel
@@ -285,6 +290,11 @@ impl Channel {
     /// variant, but the channel does not support triggering.
     pub fn set_channel_configuration(&mut self, configuration: Configuration) {
         // Immutable write OK. 32-bit store on configuration register.
+        // eDMA3/4: Haven't found any equivalent to "always on." Doesn't seem
+        // that the periodic request via PIT will apply, either.
+        //
+        // Hardware signals will route to the channel multiplexer configuration
+        // register CHn_MUX in the TCD.
         let chcfg = &self.multiplexer.chcfg[self.index];
         match configuration {
             Configuration::Off => chcfg.write(0),
@@ -308,6 +318,8 @@ impl Channel {
 
     /// Returns `true` if the DMA channel is receiving a service signal from hardware
     pub fn is_hardware_signaling(&self) -> bool {
+        // eDMA4: Since there's so many channels, there's an extra
+        // register we need to be aware of.
         self.registers.HRS.read() & (1 << self.index) != 0
     }
 
@@ -315,17 +327,22 @@ impl Channel {
     pub fn disable(&self) {
         // Immutable write OK. No other methods directly modify ERQ.
         self.registers.CERQ.write(self.index as u8);
+        // eDMA3/4: see notes in enable. RMW to set bit 0 low.
     }
 
     /// Returns `true` if this DMA channel generated an interrupt
     pub fn is_interrupt(&self) -> bool {
         self.registers.INT.read() & (1 << self.index) != 0
+        // eDMA3/4: Each channel has a W1C interrupt bit.
+        // Prefer that instead of the aggregate register(s)
+        // in the MP space.
     }
 
     /// Clear the interrupt flag from this DMA channel
     pub fn clear_interrupt(&self) {
         // Immutable write OK. No other methods modify INT.
         self.registers.CINT.write(self.index as u8);
+        // eDMA3/4: See note in is_interrupt.
     }
 
     /// Enable or disable 'disable on completion'
@@ -349,6 +366,7 @@ impl Channel {
     pub fn is_complete(&self) -> bool {
         let tcd = self.tcd();
         ral::read_reg!(crate::ral::tcd, tcd, CSR, DONE == 1)
+        // eDMA3/4: Need to check CHn_CSR in the TCD space.
     }
 
     /// Clears completion indication
@@ -357,11 +375,13 @@ impl Channel {
         // TCD require &mut reference. Existence of &mut reference blocks
         // clear_complete calls.
         self.registers.CDNE.write(self.index as u8);
+        // eDMA3/4: Need to change a CHn_CSR bit in the TCD space.
     }
 
     /// Indicates if the DMA channel is in an error state
     pub fn is_error(&self) -> bool {
         self.registers.ERR.read() & (1 << self.index) != 0
+        // eDMA3/4: Check CHn_ES, highest bit.
     }
 
     /// Clears the error flag
@@ -369,17 +389,20 @@ impl Channel {
         // Immutable write OK. CERR affects a bit in ERR, which is
         // not written to elsewhere.
         self.registers.CERR.write(self.index as u8);
+        // eDMA3/4: W1C CHn_ES, highest bit.
     }
 
     /// Indicates if this DMA channel is actively transferring data
     pub fn is_active(&self) -> bool {
         let tcd = self.tcd();
         ral::read_reg!(crate::ral::tcd, tcd, CSR, ACTIVE == 1)
+        // eDMA3/4: Check CHn_CSR, highest bit.
     }
 
     /// Indicates if this DMA channel is enabled
     pub fn is_enabled(&self) -> bool {
         self.registers.ERQ.read() & (1 << self.index) != 0
+        // eDMA3/4: Check CHn_CSR, lowest bit.
     }
 
     /// Returns the value from the **global** error status register
@@ -388,6 +411,8 @@ impl Channel {
     /// may not be related to this channel.
     pub fn error_status(&self) -> Error {
         Error::new(self.registers.ES.read())
+        // eDMA3/4: Read CHn_ES. TODO: figure out if
+        // the layout of the flags is the same.
     }
 
     /// Start a DMA transfer
