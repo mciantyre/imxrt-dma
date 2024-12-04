@@ -199,7 +199,7 @@
         <span class="kw">match </span><span class="self">self </span>{
             <span class="self">Self</span>::EDma3(edma3) =&gt; edma3.HRS.read() &amp; <span class="number">1 </span>&lt;&lt; index != <span class="number">0</span>,
             <span class="self">Self</span>::EDma4(edma4) <span class="kw">if </span>index &lt; <span class="number">32 </span>=&gt; edma4.HRS_LOW.read() &amp; <span class="number">1 </span>&lt;&lt; index != <span class="number">0</span>,
-            <span class="self">Self</span>::EDma4(edma4) <span class="kw">if </span><span class="number">32 </span>&lt;= index &amp;&amp; index &lt; <span class="number">64 </span>=&gt; {
+            <span class="self">Self</span>::EDma4(edma4) <span class="kw">if </span>(<span class="number">32</span>..<span class="number">64</span>).contains(<span class="kw-2">&amp;</span>index) =&gt; {
                 edma4.HRS_HIGH.read() &amp; <span class="number">1 </span>&lt;&lt; (index - <span class="number">32</span>) != <span class="number">0
             </span>}
             <span class="kw">_ </span>=&gt; <span class="macro">unreachable!</span>(<span class="string">"Driver guarantees that index is always in bounds"</span>),

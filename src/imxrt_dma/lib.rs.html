@@ -149,7 +149,15 @@
 <a href="#148" id="148">148</a>
 <a href="#149" id="149">149</a>
 <a href="#150" id="150">150</a>
-<a href="#151" id="151">151</a></pre></div><pre class="rust"><code><span class="doccomment">//! Direct Memory Access (DMA) driver for i.MX RT processors.
+<a href="#151" id="151">151</a>
+<a href="#152" id="152">152</a>
+<a href="#153" id="153">153</a>
+<a href="#154" id="154">154</a>
+<a href="#155" id="155">155</a>
+<a href="#156" id="156">156</a>
+<a href="#157" id="157">157</a>
+<a href="#158" id="158">158</a>
+<a href="#159" id="159">159</a></pre></div><pre class="rust"><code><span class="doccomment">//! Direct Memory Access (DMA) driver for i.MX RT processors.
 //!
 //! `imxrt-dma` provides
 //!
@@ -281,6 +289,10 @@
     }
 
     <span class="doccomment">/// Create an eDMA3 driver.
+    ///
+    /// # Safety
+    ///
+    /// TODO
     </span><span class="attr">#[cfg(feature = <span class="string">"edma34"</span>)]
     </span><span class="kw">pub const unsafe fn </span>new_edma3(controller: <span class="kw-2">*const </span>()) -&gt; <span class="self">Self </span>{
         <span class="self">Self </span>{
@@ -290,6 +302,10 @@
     }
 
     <span class="doccomment">/// Create an eDMA3 driver.
+    ///
+    /// # Safety
+    ///
+    /// TODO
     </span><span class="attr">#[cfg(feature = <span class="string">"edma34"</span>)]
     </span><span class="kw">pub const unsafe fn </span>new_edma4(controller: <span class="kw-2">*const </span>()) -&gt; <span class="self">Self </span>{
         <span class="self">Self </span>{
