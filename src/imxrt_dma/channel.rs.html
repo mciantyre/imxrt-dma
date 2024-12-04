@@ -625,7 +625,100 @@
 <a href="#624" id="624">624</a>
 <a href="#625" id="625">625</a>
 <a href="#626" id="626">626</a>
-<a href="#627" id="627">627</a></pre></div><pre class="rust"><code><span class="doccomment">//! DMA channels
+<a href="#627" id="627">627</a>
+<a href="#628" id="628">628</a>
+<a href="#629" id="629">629</a>
+<a href="#630" id="630">630</a>
+<a href="#631" id="631">631</a>
+<a href="#632" id="632">632</a>
+<a href="#633" id="633">633</a>
+<a href="#634" id="634">634</a>
+<a href="#635" id="635">635</a>
+<a href="#636" id="636">636</a>
+<a href="#637" id="637">637</a>
+<a href="#638" id="638">638</a>
+<a href="#639" id="639">639</a>
+<a href="#640" id="640">640</a>
+<a href="#641" id="641">641</a>
+<a href="#642" id="642">642</a>
+<a href="#643" id="643">643</a>
+<a href="#644" id="644">644</a>
+<a href="#645" id="645">645</a>
+<a href="#646" id="646">646</a>
+<a href="#647" id="647">647</a>
+<a href="#648" id="648">648</a>
+<a href="#649" id="649">649</a>
+<a href="#650" id="650">650</a>
+<a href="#651" id="651">651</a>
+<a href="#652" id="652">652</a>
+<a href="#653" id="653">653</a>
+<a href="#654" id="654">654</a>
+<a href="#655" id="655">655</a>
+<a href="#656" id="656">656</a>
+<a href="#657" id="657">657</a>
+<a href="#658" id="658">658</a>
+<a href="#659" id="659">659</a>
+<a href="#660" id="660">660</a>
+<a href="#661" id="661">661</a>
+<a href="#662" id="662">662</a>
+<a href="#663" id="663">663</a>
+<a href="#664" id="664">664</a>
+<a href="#665" id="665">665</a>
+<a href="#666" id="666">666</a>
+<a href="#667" id="667">667</a>
+<a href="#668" id="668">668</a>
+<a href="#669" id="669">669</a>
+<a href="#670" id="670">670</a>
+<a href="#671" id="671">671</a>
+<a href="#672" id="672">672</a>
+<a href="#673" id="673">673</a>
+<a href="#674" id="674">674</a>
+<a href="#675" id="675">675</a>
+<a href="#676" id="676">676</a>
+<a href="#677" id="677">677</a>
+<a href="#678" id="678">678</a>
+<a href="#679" id="679">679</a>
+<a href="#680" id="680">680</a>
+<a href="#681" id="681">681</a>
+<a href="#682" id="682">682</a>
+<a href="#683" id="683">683</a>
+<a href="#684" id="684">684</a>
+<a href="#685" id="685">685</a>
+<a href="#686" id="686">686</a>
+<a href="#687" id="687">687</a>
+<a href="#688" id="688">688</a>
+<a href="#689" id="689">689</a>
+<a href="#690" id="690">690</a>
+<a href="#691" id="691">691</a>
+<a href="#692" id="692">692</a>
+<a href="#693" id="693">693</a>
+<a href="#694" id="694">694</a>
+<a href="#695" id="695">695</a>
+<a href="#696" id="696">696</a>
+<a href="#697" id="697">697</a>
+<a href="#698" id="698">698</a>
+<a href="#699" id="699">699</a>
+<a href="#700" id="700">700</a>
+<a href="#701" id="701">701</a>
+<a href="#702" id="702">702</a>
+<a href="#703" id="703">703</a>
+<a href="#704" id="704">704</a>
+<a href="#705" id="705">705</a>
+<a href="#706" id="706">706</a>
+<a href="#707" id="707">707</a>
+<a href="#708" id="708">708</a>
+<a href="#709" id="709">709</a>
+<a href="#710" id="710">710</a>
+<a href="#711" id="711">711</a>
+<a href="#712" id="712">712</a>
+<a href="#713" id="713">713</a>
+<a href="#714" id="714">714</a>
+<a href="#715" id="715">715</a>
+<a href="#716" id="716">716</a>
+<a href="#717" id="717">717</a>
+<a href="#718" id="718">718</a>
+<a href="#719" id="719">719</a>
+<a href="#720" id="720">720</a></pre></div><pre class="rust"><code><span class="doccomment">//! DMA channels
 //!
 //! `channel` contains the DMA [`Channel`] type, along with helper functions for
 //! defining transfers.
@@ -634,11 +727,12 @@
 //! be very careful when calling these methods, particuarly when a channel is already
 //! enabled.
 
-</span><span class="kw">use crate</span>::{
-    element::Element,
-    ral::{<span class="self">self</span>, dma, dmamux, tcd::BandwidthControl, Static},
-    Error,
-};
+</span><span class="kw">use crate</span>::{element::Element, ral, Error};
+
+<span class="attr">#[cfg(not(feature = <span class="string">"edma34"</span>))]
+</span><span class="kw">use </span><span class="kw">crate</span>::ral::{dmamux, tcd::BandwidthControl, Static};
+
+<span class="kw">use </span>cfg_if::cfg_if;
 
 <span class="kw">impl</span>&lt;<span class="kw">const </span>CHANNELS: usize&gt; <span class="kw">super</span>::Dma&lt;CHANNELS&gt; {
     <span class="doccomment">/// Creates the DMA channel described by `index`.
@@ -657,7 +751,8 @@
         Channel {
             index,
             registers: <span class="self">self</span>.controller,
-            multiplexer: <span class="self">self</span>.multiplexer,
+            <span class="attr">#[cfg(not(feature = <span class="string">"edma34"</span>))]
+            </span>multiplexer: <span class="self">self</span>.multiplexer,
             waker: <span class="kw-2">&amp;</span><span class="self">self</span>.wakers[index],
         }
     }
@@ -674,8 +769,9 @@
     <span class="doccomment">/// Our channel number, expected to be between [0, 32)
     </span>index: usize,
     <span class="doccomment">/// Reference to the DMA registers
-    </span>registers: Static&lt;dma::RegisterBlock&gt;,
+    </span>registers: ral::Kind,
     <span class="doccomment">/// Reference to the DMA multiplexer
+    </span><span class="attr">#[cfg(not(feature = <span class="string">"edma34"</span>))]
     </span>multiplexer: Static&lt;dmamux::RegisterBlock&gt;,
     <span class="doccomment">/// This channel's waker.
     </span><span class="kw">pub</span>(<span class="kw">crate</span>) waker: <span class="kw-2">&amp;</span><span class="lifetime">'static </span><span class="kw">super</span>::SharedWaker,
@@ -697,11 +793,18 @@
     ///   buffer is correctly sized and aligned.
     </span><span class="kw">pub unsafe fn </span>enable(<span class="kw-2">&amp;</span><span class="self">self</span>) {
         <span class="comment">// Immutable write OK. No other methods directly modify ERQ.
-        </span><span class="self">self</span>.registers.SERQ.write(<span class="self">self</span>.index <span class="kw">as </span>u8);
-        <span class="comment">// eDMA3/4: dispatch to the TCD CHn_CSR. RMW on bit
-        // 0 to enable. Immutable write still OK: channel
-        // deemed unique, and it should be !Sync.
-    </span>}
+        </span><span class="macro">cfg_if!</span> {
+            <span class="kw">if </span><span class="attr">#[cfg(not(feature = <span class="string">"edma34"</span>))] </span>{
+                <span class="self">self</span>.registers.SERQ.write(<span class="self">self</span>.index <span class="kw">as </span>u8);
+            } <span class="kw">else </span>{
+                <span class="comment">// eDMA3/4: dispatch to the TCD CHn_CSR. RMW on bit
+                // 0 to enable. Immutable write still OK: channel
+                // deemed unique, and it should be !Sync.
+                </span><span class="kw">let </span>chan = <span class="self">self</span>.registers.channel(<span class="self">self</span>.index);
+                <span class="macro">ral::modify_reg!</span>(<span class="kw">crate</span>::ral::tcd::edma34, chan, CSR, ERQ: <span class="number">1</span>);
+            }
+        }
+    }
 
     <span class="doccomment">/// Returns the DMA channel number
     ///
@@ -714,6 +817,7 @@
     ///
     /// - `None` disables bandwidth control (default setting)
     /// - `Some(bwc)` sets the bandwidth control to `bwc`
+    </span><span class="attr">#[cfg(not(feature = <span class="string">"edma34"</span>))] </span><span class="comment">// TODO: Could be supported for eDMA3.
     </span><span class="kw">pub fn </span>set_bandwidth_control(<span class="kw-2">&amp;mut </span><span class="self">self</span>, bandwidth: <span class="prelude-ty">Option</span>&lt;BandwidthControl&gt;) {
         <span class="kw">let </span>raw = BandwidthControl::raw(bandwidth);
         <span class="kw">let </span>tcd = <span class="self">self</span>.tcd();
@@ -732,7 +836,7 @@
 
     <span class="doccomment">/// Returns a handle to this channel's transfer control descriptor
     </span><span class="kw">fn </span>tcd(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="kw">crate</span>::ral::tcd::RegisterBlock {
-        <span class="kw-2">&amp;</span><span class="self">self</span>.registers.TCD[<span class="self">self</span>.index]
+        <span class="self">self</span>.registers.tcd(<span class="self">self</span>.index)
     }
 
     <span class="doccomment">/// Set the source address for a DMA transfer
@@ -922,55 +1026,91 @@
         //
         // Hardware signals will route to the channel multiplexer configuration
         // register CHn_MUX in the TCD.
-        </span><span class="kw">let </span>chcfg = <span class="kw-2">&amp;</span><span class="self">self</span>.multiplexer.chcfg[<span class="self">self</span>.index];
-        <span class="kw">match </span>configuration {
-            Configuration::Off =&gt; chcfg.write(<span class="number">0</span>),
-            Configuration::Enable { source, periodic } =&gt; {
-                <span class="kw">let </span><span class="kw-2">mut </span>v = source | dmamux::RegisterBlock::ENBL;
-                <span class="kw">if </span>periodic {
-                    <span class="macro">assert!</span>(
-                        <span class="self">self</span>.channel() &lt; <span class="number">4</span>,
-                        <span class="string">"Requested DMA periodic triggering on an unsupported channel."
-                    </span>);
-                    v |= dmamux::RegisterBlock::TRIG;
+        </span><span class="macro">cfg_if!</span> {
+            <span class="kw">if </span><span class="attr">#[cfg(not(feature = <span class="string">"edma34"</span>))] </span>{
+                <span class="kw">let </span>chcfg = <span class="kw-2">&amp;</span><span class="self">self</span>.multiplexer.chcfg[<span class="self">self</span>.index];
+                <span class="kw">match </span>configuration {
+                    Configuration::Off =&gt; chcfg.write(<span class="number">0</span>),
+                    Configuration::Enable { source, periodic } =&gt; {
+                        <span class="kw">let </span><span class="kw-2">mut </span>v = source | dmamux::RegisterBlock::ENBL;
+                        <span class="kw">if </span>periodic {
+                            <span class="macro">assert!</span>(
+                                <span class="self">self</span>.channel() &lt; <span class="number">4</span>,
+                                <span class="string">"Requested DMA periodic triggering on an unsupported channel."
+                            </span>);
+                            v |= dmamux::RegisterBlock::TRIG;
+                        }
+                        chcfg.write(v);
+                    }
+                    Configuration::AlwaysOn =&gt; {
+                        <span class="comment">// See note in reference manual: when A_ON is high, SOURCE is ignored.
+                        </span>chcfg.write(dmamux::RegisterBlock::ENBL | dmamux::RegisterBlock::A_ON)
+                    }
                 }
-                chcfg.write(v);
-            }
-            Configuration::AlwaysOn =&gt; {
-                <span class="comment">// See note in reference manual: when A_ON is high, SOURCE is ignored.
-                </span>chcfg.write(dmamux::RegisterBlock::ENBL | dmamux::RegisterBlock::A_ON)
+            } <span class="kw">else </span>{
+                <span class="kw">let </span>source = <span class="kw">match </span>configuration {
+                    Configuration::Off =&gt; <span class="number">0</span>,
+                    Configuration::Enable { source } =&gt; source,
+                };
+                <span class="kw">let </span>chan = <span class="self">self</span>.registers.channel(<span class="self">self</span>.index);
+                <span class="macro">ral::write_reg!</span>(<span class="kw">crate</span>::ral::tcd::edma34, chan, MUX, source);
             }
         }
     }
 
     <span class="doccomment">/// Returns `true` if the DMA channel is receiving a service signal from hardware
     </span><span class="kw">pub fn </span>is_hardware_signaling(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
-        <span class="comment">// eDMA4: Since there's so many channels, there's an extra
-        // register we need to be aware of.
-        </span><span class="self">self</span>.registers.HRS.read() &amp; (<span class="number">1 </span>&lt;&lt; <span class="self">self</span>.index) != <span class="number">0
-    </span>}
+        <span class="macro">cfg_if!</span> {
+            <span class="kw">if </span><span class="attr">#[cfg(not(feature = <span class="string">"edma34"</span>))] </span>{
+                <span class="self">self</span>.registers.HRS.read() &amp; (<span class="number">1 </span>&lt;&lt; <span class="self">self</span>.index) != <span class="number">0
+            </span>} <span class="kw">else </span>{
+                <span class="comment">// eDMA4: Since there's so many channels, there's an extra
+                // register we need to be aware of.
+                </span><span class="self">self</span>.registers.is_hardware_signaling(<span class="self">self</span>.index)
+            }
+        }
+    }
 
     <span class="doccomment">/// Disable the DMA channel, preventing any DMA transfers
     </span><span class="kw">pub fn </span>disable(<span class="kw-2">&amp;</span><span class="self">self</span>) {
         <span class="comment">// Immutable write OK. No other methods directly modify ERQ.
-        </span><span class="self">self</span>.registers.CERQ.write(<span class="self">self</span>.index <span class="kw">as </span>u8);
-        <span class="comment">// eDMA3/4: see notes in enable. RMW to set bit 0 low.
-    </span>}
+        </span><span class="macro">cfg_if!</span> {
+            <span class="kw">if </span><span class="attr">#[cfg(not(feature = <span class="string">"edma34"</span>))] </span>{
+                <span class="self">self</span>.registers.CERQ.write(<span class="self">self</span>.index <span class="kw">as </span>u8);
+            } <span class="kw">else </span>{
+                <span class="comment">// eDMA3/4: see notes in enable. RMW to set bit 0 low.
+                </span><span class="kw">let </span>chan = <span class="self">self</span>.registers.channel(<span class="self">self</span>.index);
+                <span class="macro">ral::modify_reg!</span>(<span class="kw">crate</span>::ral::tcd::edma34, chan, CSR, ERQ: <span class="number">0</span>);
+            }
+        }
+    }
 
     <span class="doccomment">/// Returns `true` if this DMA channel generated an interrupt
     </span><span class="kw">pub fn </span>is_interrupt(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
-        <span class="self">self</span>.registers.INT.read() &amp; (<span class="number">1 </span>&lt;&lt; <span class="self">self</span>.index) != <span class="number">0
-        </span><span class="comment">// eDMA3/4: Each channel has a W1C interrupt bit.
-        // Prefer that instead of the aggregate register(s)
-        // in the MP space.
-    </span>}
+        <span class="macro">cfg_if!</span> {
+            <span class="kw">if </span><span class="attr">#[cfg(not(feature = <span class="string">"edma34"</span>))] </span>{
+                <span class="self">self</span>.registers.INT.read() &amp; (<span class="number">1 </span>&lt;&lt; <span class="self">self</span>.index) != <span class="number">0
+            </span>} <span class="kw">else </span>{
+                <span class="comment">// eDMA3/4: Each channel has a W1C interrupt bit.
+                // Prefer that instead of the aggregate register(s)
+                // in the MP space.
+                </span><span class="self">self</span>.registers.channel(<span class="self">self</span>.index).INT.read() != <span class="number">0
+            </span>}
+        }
+    }
 
     <span class="doccomment">/// Clear the interrupt flag from this DMA channel
     </span><span class="kw">pub fn </span>clear_interrupt(<span class="kw-2">&amp;</span><span class="self">self</span>) {
-        <span class="comment">// Immutable write OK. No other methods modify INT.
-        </span><span class="self">self</span>.registers.CINT.write(<span class="self">self</span>.index <span class="kw">as </span>u8);
-        <span class="comment">// eDMA3/4: See note in is_interrupt.
-    </span>}
+        <span class="macro">cfg_if!</span> {
+            <span class="kw">if </span><span class="attr">#[cfg(not(feature = <span class="string">"edma34"</span>))] </span>{
+                <span class="comment">// Immutable write OK. No other methods modify INT.
+                </span><span class="self">self</span>.registers.CINT.write(<span class="self">self</span>.index <span class="kw">as </span>u8);
+            } <span class="kw">else </span>{
+                <span class="comment">// eDMA3/4: See note in is_interrupt.
+                </span><span class="self">self</span>.registers.channel(<span class="self">self</span>.index).INT.write(<span class="number">1</span>);
+            }
+        }
+    }
 
     <span class="doccomment">/// Enable or disable 'disable on completion'
     ///
@@ -991,56 +1131,101 @@
 
     <span class="doccomment">/// Indicates if the DMA transfer has completed
     </span><span class="kw">pub fn </span>is_complete(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
-        <span class="kw">let </span>tcd = <span class="self">self</span>.tcd();
-        <span class="macro">ral::read_reg!</span>(<span class="kw">crate</span>::ral::tcd, tcd, CSR, DONE == <span class="number">1</span>)
-        <span class="comment">// eDMA3/4: Need to check CHn_CSR in the TCD space.
-    </span>}
+        <span class="macro">cfg_if!</span> {
+            <span class="kw">if </span><span class="attr">#[cfg(not(feature = <span class="string">"edma34"</span>))] </span>{
+                <span class="kw">let </span>tcd = <span class="self">self</span>.tcd();
+                <span class="macro">ral::read_reg!</span>(<span class="kw">crate</span>::ral::tcd, tcd, CSR, DONE == <span class="number">1</span>)
+            } <span class="kw">else </span>{
+                <span class="comment">// eDMA3/4: Need to check CHn_CSR in the TCD space.
+                </span><span class="kw">let </span>chan = <span class="self">self</span>.registers.channel(<span class="self">self</span>.index);
+                <span class="macro">ral::read_reg!</span>(<span class="kw">crate</span>::ral::tcd::edma34, chan, CSR, DONE == <span class="number">1</span>)
+            }
+        }
+    }
 
     <span class="doccomment">/// Clears completion indication
     </span><span class="kw">pub fn </span>clear_complete(<span class="kw-2">&amp;</span><span class="self">self</span>) {
-        <span class="comment">// Immutable write OK. CDNE affects a bit in TCD. But, other writes to
-        // TCD require &amp;mut reference. Existence of &amp;mut reference blocks
-        // clear_complete calls.
-        </span><span class="self">self</span>.registers.CDNE.write(<span class="self">self</span>.index <span class="kw">as </span>u8);
-        <span class="comment">// eDMA3/4: Need to change a CHn_CSR bit in the TCD space.
-    </span>}
+        <span class="macro">cfg_if!</span> {
+            <span class="kw">if </span><span class="attr">#[cfg(not(feature = <span class="string">"edma34"</span>))] </span>{
+                <span class="comment">// Immutable write OK. CDNE affects a bit in TCD. But, other writes to
+                // TCD require &amp;mut reference. Existence of &amp;mut reference blocks
+                // clear_complete calls.
+                </span><span class="self">self</span>.registers.CDNE.write(<span class="self">self</span>.index <span class="kw">as </span>u8);
+            } <span class="kw">else </span>{
+                <span class="comment">// eDMA3/4: Need to change a CHn_CSR bit in the TCD space.
+                </span><span class="kw">let </span>chan = <span class="self">self</span>.registers.channel(<span class="self">self</span>.index);
+                <span class="macro">ral::modify_reg!</span>(<span class="kw">crate</span>::ral::tcd::edma34, chan, CSR, DONE: <span class="number">1</span>);
+            }
+        }
+    }
 
     <span class="doccomment">/// Indicates if the DMA channel is in an error state
     </span><span class="kw">pub fn </span>is_error(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
-        <span class="self">self</span>.registers.ERR.read() &amp; (<span class="number">1 </span>&lt;&lt; <span class="self">self</span>.index) != <span class="number">0
-        </span><span class="comment">// eDMA3/4: Check CHn_ES, highest bit.
-    </span>}
+        <span class="macro">cfg_if!</span> {
+            <span class="kw">if </span><span class="attr">#[cfg(not(feature = <span class="string">"edma34"</span>))] </span>{
+                <span class="self">self</span>.registers.ERR.read() &amp; (<span class="number">1 </span>&lt;&lt; <span class="self">self</span>.index) != <span class="number">0
+            </span>} <span class="kw">else </span>{
+                <span class="comment">// eDMA3/4: Check CHn_ES, highest bit.
+                </span><span class="self">self</span>.registers.channel(<span class="self">self</span>.index).ES.read() != <span class="number">0
+            </span>}
+        }
+    }
 
     <span class="doccomment">/// Clears the error flag
     </span><span class="kw">pub fn </span>clear_error(<span class="kw-2">&amp;</span><span class="self">self</span>) {
-        <span class="comment">// Immutable write OK. CERR affects a bit in ERR, which is
-        // not written to elsewhere.
-        </span><span class="self">self</span>.registers.CERR.write(<span class="self">self</span>.index <span class="kw">as </span>u8);
-        <span class="comment">// eDMA3/4: W1C CHn_ES, highest bit.
-    </span>}
+        <span class="macro">cfg_if!</span> {
+            <span class="kw">if </span><span class="attr">#[cfg(not(feature = <span class="string">"edma34"</span>))] </span>{
+                <span class="comment">// Immutable write OK. CERR affects a bit in ERR, which is
+                // not written to elsewhere.
+                </span><span class="self">self</span>.registers.CERR.write(<span class="self">self</span>.index <span class="kw">as </span>u8);
+            } <span class="kw">else </span>{
+                <span class="comment">// eDMA3/4: W1C CHn_ES, highest bit.
+                </span><span class="self">self</span>.registers.channel(<span class="self">self</span>.index).ES.write(<span class="number">1 </span>&lt;&lt; <span class="number">31</span>);
+            }
+        }
+    }
 
     <span class="doccomment">/// Indicates if this DMA channel is actively transferring data
     </span><span class="kw">pub fn </span>is_active(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
-        <span class="kw">let </span>tcd = <span class="self">self</span>.tcd();
-        <span class="macro">ral::read_reg!</span>(<span class="kw">crate</span>::ral::tcd, tcd, CSR, ACTIVE == <span class="number">1</span>)
-        <span class="comment">// eDMA3/4: Check CHn_CSR, highest bit.
-    </span>}
+        <span class="macro">cfg_if!</span> {
+            <span class="kw">if </span><span class="attr">#[cfg(not(feature = <span class="string">"edma34"</span>))] </span>{
+                <span class="kw">let </span>tcd = <span class="self">self</span>.tcd();
+                <span class="macro">ral::read_reg!</span>(<span class="kw">crate</span>::ral::tcd, tcd, CSR, ACTIVE == <span class="number">1</span>)
+            } <span class="kw">else </span>{
+                <span class="comment">// eDMA3/4: Check CHn_CSR, highest bit.
+                </span><span class="kw">let </span>chan = <span class="self">self</span>.registers.channel(<span class="self">self</span>.index);
+                <span class="macro">ral::read_reg!</span>(<span class="kw">crate</span>::ral::tcd::edma34, chan, CSR, ACTIVE == <span class="number">1</span>)
+            }
+        }
+    }
 
     <span class="doccomment">/// Indicates if this DMA channel is enabled
     </span><span class="kw">pub fn </span>is_enabled(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
-        <span class="self">self</span>.registers.ERQ.read() &amp; (<span class="number">1 </span>&lt;&lt; <span class="self">self</span>.index) != <span class="number">0
-        </span><span class="comment">// eDMA3/4: Check CHn_CSR, lowest bit.
-    </span>}
+        <span class="macro">cfg_if!</span> {
+            <span class="kw">if </span><span class="attr">#[cfg(not(feature = <span class="string">"edma34"</span>))] </span>{
+                <span class="self">self</span>.registers.ERQ.read() &amp; (<span class="number">1 </span>&lt;&lt; <span class="self">self</span>.index) != <span class="number">0
+            </span>} <span class="kw">else </span>{
+                <span class="comment">// eDMA3/4: Check CHn_CSR, lowest bit.
+                </span><span class="kw">let </span>chan = <span class="self">self</span>.registers.channel(<span class="self">self</span>.index);
+                <span class="macro">ral::read_reg!</span>(<span class="kw">crate</span>::ral::tcd::edma34, chan, CSR, ERQ == <span class="number">1</span>)
+            }
+        }
+    }
 
     <span class="doccomment">/// Returns the value from the **global** error status register
     ///
     /// It may reflect the last channel that produced an error, and that
     /// may not be related to this channel.
     </span><span class="kw">pub fn </span>error_status(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Error {
-        Error::new(<span class="self">self</span>.registers.ES.read())
-        <span class="comment">// eDMA3/4: Read CHn_ES. TODO: figure out if
-        // the layout of the flags is the same.
-    </span>}
+        <span class="macro">cfg_if!</span> {
+            <span class="kw">if </span><span class="attr">#[cfg(not(feature = <span class="string">"edma34"</span>))] </span>{
+                Error::new(<span class="self">self</span>.registers.ES.read())
+            } <span class="kw">else </span>{
+                <span class="comment">// eDMA3/4: Read CHn_ES.
+                </span>Error::new(<span class="self">self</span>.registers.channel(<span class="self">self</span>.index).ES.read())
+            }
+        }
+    }
 
     <span class="doccomment">/// Start a DMA transfer
     ///
@@ -1051,10 +1236,8 @@
     ///
     /// Flag is automatically cleared by hardware after it's asserted.
     </span><span class="kw">pub fn </span>start(<span class="kw-2">&amp;</span><span class="self">self</span>) {
-        <span class="comment">// Immutable write OK. SSRT affects a bit in TCD. But, other writes to
-        // TCD require &amp;mut reference. Existence of &amp;mut reference blocks
-        // start calls.
-        </span><span class="self">self</span>.registers.SSRT.write(<span class="self">self</span>.index <span class="kw">as </span>u8);
+        <span class="kw">let </span>tcd = <span class="self">self</span>.tcd();
+        <span class="macro">ral::modify_reg!</span>(<span class="kw">crate</span>::ral::tcd, tcd, CSR, START: <span class="number">1</span>);
     }
 }
 
@@ -1082,6 +1265,7 @@
         ///
         /// `periodic` only works for the first four DMA channels, since
         /// it corresponds to the PIT timers.
+        </span><span class="attr">#[cfg(not(feature = <span class="string">"edma34"</span>))]
         </span>periodic: bool,
     },
     <span class="doccomment">/// The DMAMUX is always on, and there's no need for software
@@ -1090,6 +1274,7 @@
     /// Use `AlwaysOn` for
     /// - memory-to-memory transfers
     /// - memory to external bus transfers
+    </span><span class="attr">#[cfg(not(feature = <span class="string">"edma34"</span>))]
     </span>AlwaysOn,
 }
 
@@ -1102,7 +1287,8 @@
     </span><span class="kw">pub const fn </span>enable(source: u32) -&gt; <span class="self">Self </span>{
         Configuration::Enable {
             source,
-            periodic: <span class="bool-val">false</span>,
+            <span class="attr">#[cfg(not(feature = <span class="string">"edma34"</span>))]
+            </span>periodic: <span class="bool-val">false</span>,
         }
     }
 }
