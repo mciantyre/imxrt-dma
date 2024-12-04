@@ -7,52 +7,17 @@
 //! be very careful when calling these methods, particuarly when a channel is already
 //! enabled.
 
-use crate::{
-    element::Element,
-    ral::{self, dma, dmamux, tcd::BandwidthControl, Static},
-    Error,
-};
+use crate::{element::Element, ral, Error};
 
-impl<const CHANNELS: usize> super::Dma<CHANNELS> {
-    /// Creates the DMA channel described by `index`.
-    ///
-    /// # Safety
-    ///
-    /// This will create a handle that may alias global, mutable state. You should only create
-    /// one channel per index. If there are multiple channels for the same index, you're
-    /// responsible for ensuring synchronized access.
-    ///
-    /// # Panics
-    ///
-    /// Panics if `index` is greater than or equal to the maximum number of channels.
-    pub unsafe fn channel(&'static self, index: usize) -> Channel {
-        assert!(index < CHANNELS);
-        Channel {
-            index,
-            registers: self.controller,
-            multiplexer: self.multiplexer,
-            waker: &self.wakers[index],
-        }
-    }
-}
+#[cfg(feature = "edma34")]
+#[path = "channel/edma3_edma4.rs"]
+mod channel_impl;
 
-/// A DMA channel
-///
-/// You should rely on your HAL to allocate `Channel`s. If your HAL does not allocate channels,
-/// or if you're desigining the HAL, use [`Dma`](crate::Dma) to create channels.
-///
-/// The `Channel` stores memory addresses independent of the memory lifetime. You must make
-/// sure that the channel's state is valid before enabling a transfer!
-pub struct Channel {
-    /// Our channel number, expected to be between [0, 32)
-    index: usize,
-    /// Reference to the DMA registers
-    registers: Static<dma::RegisterBlock>,
-    /// Reference to the DMA multiplexer
-    multiplexer: Static<dmamux::RegisterBlock>,
-    /// This channel's waker.
-    pub(crate) waker: &'static super::SharedWaker,
-}
+#[cfg(not(feature = "edma34"))]
+#[path = "channel/edma.rs"]
+mod channel_impl;
+
+pub use channel_impl::Channel;
 
 impl Channel {
     /// Enable the DMA channel for transfers
@@ -69,8 +34,7 @@ impl Channel {
     /// - if the transfer uses a circular buffer, you must ensure that the circular
     ///   buffer is correctly sized and aligned.
     pub unsafe fn enable(&self) {
-        // Immutable write OK. No other methods directly modify ERQ.
-        self.registers.SERQ.write(self.index as u8);
+        self.enable_impl()
     }
 
     /// Returns the DMA channel number
@@ -80,27 +44,12 @@ impl Channel {
         self.index
     }
 
-    /// Set the channel's bandwidth control
-    ///
-    /// - `None` disables bandwidth control (default setting)
-    /// - `Some(bwc)` sets the bandwidth control to `bwc`
-    pub fn set_bandwidth_control(&mut self, bandwidth: Option<BandwidthControl>) {
-        let raw = BandwidthControl::raw(bandwidth);
-        let tcd = self.tcd();
-        ral::modify_reg!(crate::ral::tcd, tcd, CSR, BWC: raw);
-    }
-
     /// Reset the transfer control descriptor owned by the DMA channel
     ///
     /// `reset` should be called during channel initialization to put the
     /// channel into a known, good state.
     pub fn reset(&mut self) {
         self.tcd().reset();
-    }
-
-    /// Returns a handle to this channel's transfer control descriptor
-    fn tcd(&self) -> &crate::ral::tcd::RegisterBlock {
-        &self.registers.TCD[self.index]
     }
 
     /// Set the source address for a DMA transfer
@@ -283,48 +232,27 @@ impl Channel {
     /// panics if `triggering` is set for the [`Enable`](crate::channel::Configuration)
     /// variant, but the channel does not support triggering.
     pub fn set_channel_configuration(&mut self, configuration: Configuration) {
-        // Immutable write OK. 32-bit store on configuration register.
-        let chcfg = &self.multiplexer.chcfg[self.index];
-        match configuration {
-            Configuration::Off => chcfg.write(0),
-            Configuration::Enable { source, periodic } => {
-                let mut v = source | dmamux::RegisterBlock::ENBL;
-                if periodic {
-                    assert!(
-                        self.channel() < 4,
-                        "Requested DMA periodic triggering on an unsupported channel."
-                    );
-                    v |= dmamux::RegisterBlock::TRIG;
-                }
-                chcfg.write(v);
-            }
-            Configuration::AlwaysOn => {
-                // See note in reference manual: when A_ON is high, SOURCE is ignored.
-                chcfg.write(dmamux::RegisterBlock::ENBL | dmamux::RegisterBlock::A_ON)
-            }
-        }
+        self.set_channel_configuration_impl(configuration);
     }
 
     /// Returns `true` if the DMA channel is receiving a service signal from hardware
     pub fn is_hardware_signaling(&self) -> bool {
-        self.registers.HRS.read() & (1 << self.index) != 0
+        self.is_hardware_signaling_impl()
     }
 
     /// Disable the DMA channel, preventing any DMA transfers
     pub fn disable(&self) {
-        // Immutable write OK. No other methods directly modify ERQ.
-        self.registers.CERQ.write(self.index as u8);
+        self.disable_impl();
     }
 
     /// Returns `true` if this DMA channel generated an interrupt
     pub fn is_interrupt(&self) -> bool {
-        self.registers.INT.read() & (1 << self.index) != 0
+        self.is_interrupt_impl()
     }
 
     /// Clear the interrupt flag from this DMA channel
     pub fn clear_interrupt(&self) {
-        // Immutable write OK. No other methods modify INT.
-        self.registers.CINT.write(self.index as u8);
+        self.clear_interrupt_impl();
     }
 
     /// Enable or disable 'disable on completion'
@@ -346,39 +274,32 @@ impl Channel {
 
     /// Indicates if the DMA transfer has completed
     pub fn is_complete(&self) -> bool {
-        let tcd = self.tcd();
-        ral::read_reg!(crate::ral::tcd, tcd, CSR, DONE == 1)
+        self.is_complete_impl()
     }
 
     /// Clears completion indication
     pub fn clear_complete(&self) {
-        // Immutable write OK. CDNE affects a bit in TCD. But, other writes to
-        // TCD require &mut reference. Existence of &mut reference blocks
-        // clear_complete calls.
-        self.registers.CDNE.write(self.index as u8);
+        self.clear_complete_impl();
     }
 
     /// Indicates if the DMA channel is in an error state
     pub fn is_error(&self) -> bool {
-        self.registers.ERR.read() & (1 << self.index) != 0
+        self.is_error_impl()
     }
 
     /// Clears the error flag
     pub fn clear_error(&self) {
-        // Immutable write OK. CERR affects a bit in ERR, which is
-        // not written to elsewhere.
-        self.registers.CERR.write(self.index as u8);
+        self.clear_error_impl();
     }
 
     /// Indicates if this DMA channel is actively transferring data
     pub fn is_active(&self) -> bool {
-        let tcd = self.tcd();
-        ral::read_reg!(crate::ral::tcd, tcd, CSR, ACTIVE == 1)
+        self.is_active_impl()
     }
 
     /// Indicates if this DMA channel is enabled
     pub fn is_enabled(&self) -> bool {
-        self.registers.ERQ.read() & (1 << self.index) != 0
+        self.is_enabled_impl()
     }
 
     /// Returns the value from the **global** error status register
@@ -386,7 +307,7 @@ impl Channel {
     /// It may reflect the last channel that produced an error, and that
     /// may not be related to this channel.
     pub fn error_status(&self) -> Error {
-        Error::new(self.registers.ES.read())
+        self.error_status_impl()
     }
 
     /// Start a DMA transfer
@@ -398,10 +319,8 @@ impl Channel {
     ///
     /// Flag is automatically cleared by hardware after it's asserted.
     pub fn start(&self) {
-        // Immutable write OK. SSRT affects a bit in TCD. But, other writes to
-        // TCD require &mut reference. Existence of &mut reference blocks
-        // start calls.
-        self.registers.SSRT.write(self.index as u8);
+        let tcd = self.tcd();
+        ral::modify_reg!(crate::ral::tcd, tcd, CSR, START: 1);
     }
 }
 
@@ -429,6 +348,7 @@ pub enum Configuration {
         ///
         /// `periodic` only works for the first four DMA channels, since
         /// it corresponds to the PIT timers.
+        #[cfg(not(feature = "edma34"))]
         periodic: bool,
     },
     /// The DMAMUX is always on, and there's no need for software
@@ -437,6 +357,7 @@ pub enum Configuration {
     /// Use `AlwaysOn` for
     /// - memory-to-memory transfers
     /// - memory to external bus transfers
+    #[cfg(not(feature = "edma34"))]
     AlwaysOn,
 }
 
@@ -449,6 +370,7 @@ impl Configuration {
     pub const fn enable(source: u32) -> Self {
         Configuration::Enable {
             source,
+            #[cfg(not(feature = "edma34"))]
             periodic: false,
         }
     }

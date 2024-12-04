@@ -1,4 +1,8 @@
 //! DMA multiplexer
+//!
+//! Only available when paired with eDMA. eDMA3 and
+//! eDMA4 don't have this; the multiplexing happens
+//! in the TCD.
 
 use super::RWRegister;
 

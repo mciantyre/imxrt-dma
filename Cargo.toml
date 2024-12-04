@@ -19,3 +19,6 @@ ral-registers = "0.1"
 edition = "2021"
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/imxrt-rs/imxrt-dma"
+
+[features]
+edma34 = []

@@ -21,6 +21,8 @@ jobs:
     - run: rustup toolchain install stable --no-self-update --profile minimal --component clippy
     - name: Lint the library
       run: cargo clippy -- -D warnings
+    - name: Lint the library with eDMA3/eDMA4
+      run: cargo clippy --features=edma34 -- -D warnings
 
   # Run tests
   test:
@@ -30,6 +32,8 @@ jobs:
     - run: rustup toolchain install stable --no-self-update --profile minimal
     - name: Run unit and documentation tests
       run: cargo test
+    - name: Run unit and documentation tests with eDMA3/eDMA4
+      run: cargo test --features=edma34
 
   # Make sure documentation builds, and doclinks are valid
   doc:
@@ -41,3 +45,5 @@ jobs:
     - run: rustup toolchain install stable --no-self-update --profile minimal
     - name: Check documentation and doclinks
       run: cargo rustdoc
+    - name: Check documentation and doclinks with eDMA3/eDMA4
+      run: cargo rustdoc --features=edma34
