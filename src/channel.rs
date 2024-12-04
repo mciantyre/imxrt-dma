@@ -7,11 +7,12 @@
 //! be very careful when calling these methods, particuarly when a channel is already
 //! enabled.
 
-use crate::{
-    element::Element,
-    ral::{self, dma, dmamux, tcd::BandwidthControl, Static},
-    Error,
-};
+use crate::{element::Element, ral, Error};
+
+#[cfg(not(feature = "edma34"))]
+use crate::ral::{dmamux, tcd::BandwidthControl, Static};
+
+use cfg_if::cfg_if;
 
 impl<const CHANNELS: usize> super::Dma<CHANNELS> {
     /// Creates the DMA channel described by `index`.
@@ -30,6 +31,7 @@ impl<const CHANNELS: usize> super::Dma<CHANNELS> {
         Channel {
             index,
             registers: self.controller,
+            #[cfg(not(feature = "edma34"))]
             multiplexer: self.multiplexer,
             waker: &self.wakers[index],
         }
@@ -47,8 +49,9 @@ pub struct Channel {
     /// Our channel number, expected to be between [0, 32)
     index: usize,
     /// Reference to the DMA registers
-    registers: Static<dma::RegisterBlock>,
+    registers: ral::Kind,
     /// Reference to the DMA multiplexer
+    #[cfg(not(feature = "edma34"))]
     multiplexer: Static<dmamux::RegisterBlock>,
     /// This channel's waker.
     pub(crate) waker: &'static super::SharedWaker,
@@ -70,10 +73,17 @@ impl Channel {
     ///   buffer is correctly sized and aligned.
     pub unsafe fn enable(&self) {
         // Immutable write OK. No other methods directly modify ERQ.
-        self.registers.SERQ.write(self.index as u8);
-        // eDMA3/4: dispatch to the TCD CHn_CSR. RMW on bit
-        // 0 to enable. Immutable write still OK: channel
-        // deemed unique, and it should be !Sync.
+        cfg_if! {
+            if #[cfg(not(feature = "edma34"))] {
+                self.registers.SERQ.write(self.index as u8);
+            } else {
+                // eDMA3/4: dispatch to the TCD CHn_CSR. RMW on bit
+                // 0 to enable. Immutable write still OK: channel
+                // deemed unique, and it should be !Sync.
+                let chan = self.registers.channel(self.index);
+                ral::modify_reg!(crate::ral::tcd::edma34, chan, CSR, ERQ: 1);
+            }
+        }
     }
 
     /// Returns the DMA channel number
@@ -87,6 +97,7 @@ impl Channel {
     ///
     /// - `None` disables bandwidth control (default setting)
     /// - `Some(bwc)` sets the bandwidth control to `bwc`
+    #[cfg(not(feature = "edma34"))] // TODO: Could be supported for eDMA3.
     pub fn set_bandwidth_control(&mut self, bandwidth: Option<BandwidthControl>) {
         let raw = BandwidthControl::raw(bandwidth);
         let tcd = self.tcd();
@@ -105,7 +116,7 @@ impl Channel {
 
     /// Returns a handle to this channel's transfer control descriptor
     fn tcd(&self) -> &crate::ral::tcd::RegisterBlock {
-        &self.registers.TCD[self.index]
+        self.registers.tcd(self.index)
     }
 
     /// Set the source address for a DMA transfer
@@ -295,54 +306,90 @@ impl Channel {
         //
         // Hardware signals will route to the channel multiplexer configuration
         // register CHn_MUX in the TCD.
-        let chcfg = &self.multiplexer.chcfg[self.index];
-        match configuration {
-            Configuration::Off => chcfg.write(0),
-            Configuration::Enable { source, periodic } => {
-                let mut v = source | dmamux::RegisterBlock::ENBL;
-                if periodic {
-                    assert!(
-                        self.channel() < 4,
-                        "Requested DMA periodic triggering on an unsupported channel."
-                    );
-                    v |= dmamux::RegisterBlock::TRIG;
+        cfg_if! {
+            if #[cfg(not(feature = "edma34"))] {
+                let chcfg = &self.multiplexer.chcfg[self.index];
+                match configuration {
+                    Configuration::Off => chcfg.write(0),
+                    Configuration::Enable { source, periodic } => {
+                        let mut v = source | dmamux::RegisterBlock::ENBL;
+                        if periodic {
+                            assert!(
+                                self.channel() < 4,
+                                "Requested DMA periodic triggering on an unsupported channel."
+                            );
+                            v |= dmamux::RegisterBlock::TRIG;
+                        }
+                        chcfg.write(v);
+                    }
+                    Configuration::AlwaysOn => {
+                        // See note in reference manual: when A_ON is high, SOURCE is ignored.
+                        chcfg.write(dmamux::RegisterBlock::ENBL | dmamux::RegisterBlock::A_ON)
+                    }
                 }
-                chcfg.write(v);
-            }
-            Configuration::AlwaysOn => {
-                // See note in reference manual: when A_ON is high, SOURCE is ignored.
-                chcfg.write(dmamux::RegisterBlock::ENBL | dmamux::RegisterBlock::A_ON)
+            } else {
+                let source = match configuration {
+                    Configuration::Off => 0,
+                    Configuration::Enable { source } => source,
+                };
+                let chan = self.registers.channel(self.index);
+                ral::write_reg!(crate::ral::tcd::edma34, chan, MUX, source);
             }
         }
     }
 
     /// Returns `true` if the DMA channel is receiving a service signal from hardware
     pub fn is_hardware_signaling(&self) -> bool {
-        // eDMA4: Since there's so many channels, there's an extra
-        // register we need to be aware of.
-        self.registers.HRS.read() & (1 << self.index) != 0
+        cfg_if! {
+            if #[cfg(not(feature = "edma34"))] {
+                self.registers.HRS.read() & (1 << self.index) != 0
+            } else {
+                // eDMA4: Since there's so many channels, there's an extra
+                // register we need to be aware of.
+                self.registers.is_hardware_signaling(self.index)
+            }
+        }
     }
 
     /// Disable the DMA channel, preventing any DMA transfers
     pub fn disable(&self) {
         // Immutable write OK. No other methods directly modify ERQ.
-        self.registers.CERQ.write(self.index as u8);
-        // eDMA3/4: see notes in enable. RMW to set bit 0 low.
+        cfg_if! {
+            if #[cfg(not(feature = "edma34"))] {
+                self.registers.CERQ.write(self.index as u8);
+            } else {
+                // eDMA3/4: see notes in enable. RMW to set bit 0 low.
+                let chan = self.registers.channel(self.index);
+                ral::modify_reg!(crate::ral::tcd::edma34, chan, CSR, ERQ: 0);
+            }
+        }
     }
 
     /// Returns `true` if this DMA channel generated an interrupt
     pub fn is_interrupt(&self) -> bool {
-        self.registers.INT.read() & (1 << self.index) != 0
-        // eDMA3/4: Each channel has a W1C interrupt bit.
-        // Prefer that instead of the aggregate register(s)
-        // in the MP space.
+        cfg_if! {
+            if #[cfg(not(feature = "edma34"))] {
+                self.registers.INT.read() & (1 << self.index) != 0
+            } else {
+                // eDMA3/4: Each channel has a W1C interrupt bit.
+                // Prefer that instead of the aggregate register(s)
+                // in the MP space.
+                self.registers.channel(self.index).INT.read() != 0
+            }
+        }
     }
 
     /// Clear the interrupt flag from this DMA channel
     pub fn clear_interrupt(&self) {
-        // Immutable write OK. No other methods modify INT.
-        self.registers.CINT.write(self.index as u8);
-        // eDMA3/4: See note in is_interrupt.
+        cfg_if! {
+            if #[cfg(not(feature = "edma34"))] {
+                // Immutable write OK. No other methods modify INT.
+                self.registers.CINT.write(self.index as u8);
+            } else {
+                // eDMA3/4: See note in is_interrupt.
+                self.registers.channel(self.index).INT.write(1);
+            }
+        }
     }
 
     /// Enable or disable 'disable on completion'
@@ -364,45 +411,85 @@ impl Channel {
 
     /// Indicates if the DMA transfer has completed
     pub fn is_complete(&self) -> bool {
-        let tcd = self.tcd();
-        ral::read_reg!(crate::ral::tcd, tcd, CSR, DONE == 1)
-        // eDMA3/4: Need to check CHn_CSR in the TCD space.
+        cfg_if! {
+            if #[cfg(not(feature = "edma34"))] {
+                let tcd = self.tcd();
+                ral::read_reg!(crate::ral::tcd, tcd, CSR, DONE == 1)
+            } else {
+                // eDMA3/4: Need to check CHn_CSR in the TCD space.
+                let chan = self.registers.channel(self.index);
+                ral::read_reg!(crate::ral::tcd::edma34, chan, CSR, DONE == 1)
+            }
+        }
     }
 
     /// Clears completion indication
     pub fn clear_complete(&self) {
-        // Immutable write OK. CDNE affects a bit in TCD. But, other writes to
-        // TCD require &mut reference. Existence of &mut reference blocks
-        // clear_complete calls.
-        self.registers.CDNE.write(self.index as u8);
-        // eDMA3/4: Need to change a CHn_CSR bit in the TCD space.
+        cfg_if! {
+            if #[cfg(not(feature = "edma34"))] {
+                // Immutable write OK. CDNE affects a bit in TCD. But, other writes to
+                // TCD require &mut reference. Existence of &mut reference blocks
+                // clear_complete calls.
+                self.registers.CDNE.write(self.index as u8);
+            } else {
+                // eDMA3/4: Need to change a CHn_CSR bit in the TCD space.
+                let chan = self.registers.channel(self.index);
+                ral::modify_reg!(crate::ral::tcd::edma34, chan, CSR, DONE: 1);
+            }
+        }
     }
 
     /// Indicates if the DMA channel is in an error state
     pub fn is_error(&self) -> bool {
-        self.registers.ERR.read() & (1 << self.index) != 0
-        // eDMA3/4: Check CHn_ES, highest bit.
+        cfg_if! {
+            if #[cfg(not(feature = "edma34"))] {
+                self.registers.ERR.read() & (1 << self.index) != 0
+            } else {
+                // eDMA3/4: Check CHn_ES, highest bit.
+                self.registers.channel(self.index).ES.read() != 0
+            }
+        }
     }
 
     /// Clears the error flag
     pub fn clear_error(&self) {
-        // Immutable write OK. CERR affects a bit in ERR, which is
-        // not written to elsewhere.
-        self.registers.CERR.write(self.index as u8);
-        // eDMA3/4: W1C CHn_ES, highest bit.
+        cfg_if! {
+            if #[cfg(not(feature = "edma34"))] {
+                // Immutable write OK. CERR affects a bit in ERR, which is
+                // not written to elsewhere.
+                self.registers.CERR.write(self.index as u8);
+            } else {
+                // eDMA3/4: W1C CHn_ES, highest bit.
+                self.registers.channel(self.index).ES.write(1 << 31);
+            }
+        }
     }
 
     /// Indicates if this DMA channel is actively transferring data
     pub fn is_active(&self) -> bool {
-        let tcd = self.tcd();
-        ral::read_reg!(crate::ral::tcd, tcd, CSR, ACTIVE == 1)
-        // eDMA3/4: Check CHn_CSR, highest bit.
+        cfg_if! {
+            if #[cfg(not(feature = "edma34"))] {
+                let tcd = self.tcd();
+                ral::read_reg!(crate::ral::tcd, tcd, CSR, ACTIVE == 1)
+            } else {
+                // eDMA3/4: Check CHn_CSR, highest bit.
+                let chan = self.registers.channel(self.index);
+                ral::read_reg!(crate::ral::tcd::edma34, chan, CSR, ACTIVE == 1)
+            }
+        }
     }
 
     /// Indicates if this DMA channel is enabled
     pub fn is_enabled(&self) -> bool {
-        self.registers.ERQ.read() & (1 << self.index) != 0
-        // eDMA3/4: Check CHn_CSR, lowest bit.
+        cfg_if! {
+            if #[cfg(not(feature = "edma34"))] {
+                self.registers.ERQ.read() & (1 << self.index) != 0
+            } else {
+                // eDMA3/4: Check CHn_CSR, lowest bit.
+                let chan = self.registers.channel(self.index);
+                ral::read_reg!(crate::ral::tcd::edma34, chan, CSR, ERQ == 1)
+            }
+        }
     }
 
     /// Returns the value from the **global** error status register
@@ -410,9 +497,14 @@ impl Channel {
     /// It may reflect the last channel that produced an error, and that
     /// may not be related to this channel.
     pub fn error_status(&self) -> Error {
-        Error::new(self.registers.ES.read())
-        // eDMA3/4: Read CHn_ES. TODO: figure out if
-        // the layout of the flags is the same.
+        cfg_if! {
+            if #[cfg(not(feature = "edma34"))] {
+                Error::new(self.registers.ES.read())
+            } else {
+                // eDMA3/4: Read CHn_ES.
+                Error::new(self.registers.channel(self.index).ES.read())
+            }
+        }
     }
 
     /// Start a DMA transfer
@@ -424,10 +516,8 @@ impl Channel {
     ///
     /// Flag is automatically cleared by hardware after it's asserted.
     pub fn start(&self) {
-        // Immutable write OK. SSRT affects a bit in TCD. But, other writes to
-        // TCD require &mut reference. Existence of &mut reference blocks
-        // start calls.
-        self.registers.SSRT.write(self.index as u8);
+        let tcd = self.tcd();
+        ral::modify_reg!(crate::ral::tcd, tcd, CSR, START: 1);
     }
 }
 
@@ -455,6 +545,7 @@ pub enum Configuration {
         ///
         /// `periodic` only works for the first four DMA channels, since
         /// it corresponds to the PIT timers.
+        #[cfg(not(feature = "edma34"))]
         periodic: bool,
     },
     /// The DMAMUX is always on, and there's no need for software
@@ -463,6 +554,7 @@ pub enum Configuration {
     /// Use `AlwaysOn` for
     /// - memory-to-memory transfers
     /// - memory to external bus transfers
+    #[cfg(not(feature = "edma34"))]
     AlwaysOn,
 }
 
@@ -475,6 +567,7 @@ impl Configuration {
     pub const fn enable(source: u32) -> Self {
         Configuration::Enable {
             source,
+            #[cfg(not(feature = "edma34"))]
             periodic: false,
         }
     }

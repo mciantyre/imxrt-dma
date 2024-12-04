@@ -91,7 +91,8 @@ pub type Result<T> = core::result::Result<T, Error>;
 /// `Dma` allocates [`Channel`](channel::Channel)s. `Channel` provides
 /// the interface for scheduling transfers.
 pub struct Dma<const CHANNELS: usize> {
-    controller: ral::Static<ral::dma::RegisterBlock>,
+    controller: ral::Kind,
+    #[cfg(not(feature = "edma34"))]
     multiplexer: ral::Static<ral::dmamux::RegisterBlock>,
     wakers: [SharedWaker; CHANNELS],
 }
@@ -119,10 +120,37 @@ impl<const CHANNELS: usize> Dma<CHANNELS> {
     /// An incorrect `CHANNELS` value prevents proper bounds checking when
     /// allocating channels. This may result in DMA channels that point to
     /// invalid memory.
+    #[cfg(not(feature = "edma34"))]
     pub const unsafe fn new(controller: *const (), multiplexer: *const ()) -> Self {
         Self {
-            controller: ral::Static(controller.cast()),
+            controller: ral::Kind::EDma(ral::Static(controller.cast())),
             multiplexer: ral::Static(multiplexer.cast()),
+            wakers: [NO_WAKER; CHANNELS],
+        }
+    }
+
+    /// Create an eDMA3 driver.
+    ///
+    /// # Safety
+    ///
+    /// TODO
+    #[cfg(feature = "edma34")]
+    pub const unsafe fn new_edma3(controller: *const ()) -> Self {
+        Self {
+            controller: ral::Kind::EDma3(ral::Static(controller.cast())),
+            wakers: [NO_WAKER; CHANNELS],
+        }
+    }
+
+    /// Create an eDMA3 driver.
+    ///
+    /// # Safety
+    ///
+    /// TODO
+    #[cfg(feature = "edma34")]
+    pub const unsafe fn new_edma4(controller: *const ()) -> Self {
+        Self {
+            controller: ral::Kind::EDma4(ral::Static(controller.cast())),
             wakers: [NO_WAKER; CHANNELS],
         }
     }
