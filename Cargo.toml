@@ -12,6 +12,7 @@ categories = ["embedded", "no-std"]
 repository.workspace = true
 
 [dependencies]
+cfg-if = "1.0"
 cortex-m = "0.7.2"
 ral-registers = "0.1"
 
@@ -19,3 +20,6 @@ ral-registers = "0.1"
 edition = "2021"
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/imxrt-rs/imxrt-dma"
+
+[features]
+edma34 = []

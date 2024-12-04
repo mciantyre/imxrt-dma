@@ -203,6 +203,14 @@ pub mod CSR {
         /// Read-write values (empty)
         pub mod RW {}
     }
+
+    pub mod START {
+        pub const offset: u16 = 0;
+        pub const mask: u16 = 1 << offset;
+        pub mod R {}
+        pub mod W {}
+        pub mod RW {}
+    }
 }
 
 pub mod CITER {
@@ -248,6 +256,58 @@ impl BandwidthControl {
         match bwc {
             None => CSR::BWC::RW::BWC_0,
             Some(bwc) => bwc as u16,
+        }
+    }
+}
+
+/// TCD implementation for an eDMA IP block.
+pub(crate) mod edma {
+    pub use super::RegisterBlock;
+}
+
+/// TCD implementation for eDMA3 and eDMA4 blocks.
+pub(crate) mod edma34 {
+    use super::RWRegister;
+
+    #[repr(C, align(32))]
+    pub(crate) struct RegisterBlock {
+        pub CSR: RWRegister<u32>,
+        pub ES: RWRegister<u32>,
+        pub INT: RWRegister<u32>,
+        pub SBR: RWRegister<u32>,
+        pub PRI: RWRegister<u32>,
+        pub MUX: RWRegister<u32>,
+        /// Only available on eDMA4, and reserved
+        /// on eDMA3. We don't need it right now.
+        _mattr: u32,
+        pub TCD: super::RegisterBlock,
+    }
+
+    const _: () = assert!(core::mem::offset_of!(RegisterBlock, TCD) == 0x20);
+
+    pub mod CSR {
+        pub mod ACTIVE {
+            pub const offset: u32 = 31;
+            pub const mask: u32 = 1 << offset;
+            pub mod R {}
+            pub mod W {}
+            pub mod RW {}
+        }
+
+        pub mod DONE {
+            pub const offset: u32 = 30;
+            pub const mask: u32 = 1 << offset;
+            pub mod R {}
+            pub mod W {}
+            pub mod RW {}
+        }
+
+        pub mod ERQ {
+            pub const offset: u32 = 0;
+            pub const mask: u32 = 1 << offset;
+            pub mod R {}
+            pub mod W {}
+            pub mod RW {}
         }
     }
 }

@@ -37,6 +37,11 @@ jobs:
         token: ${{ secrets.GITHUB_TOKEN }}
         args: --verbose -- -D warnings
         name: Lint the library
+    - uses: actions-rs/clippy-check@v1
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
+        args: --verbose --features=edma34 -- -D warnings
+        name: Lint the library with eDMA34
 
   # Run tests
   test:

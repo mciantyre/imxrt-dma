@@ -38,17 +38,17 @@ impl Error {
     /// Indicates if the transfer was cancelled
     #[inline(always)]
     pub const fn is_cancelled(self) -> bool {
-        self.is_bit(16)
+        cfg!(not(feature = "edma34")) && self.is_bit(16)
     }
     /// Indicates a group priority error
     #[inline(always)]
     pub const fn is_group_priority(self) -> bool {
-        self.is_bit(15)
+        cfg!(not(feature = "edma34")) && self.is_bit(15)
     }
     /// Indicates a channel priority error
     #[inline(always)]
     pub const fn is_channel_priority(self) -> bool {
-        self.is_bit(14)
+        cfg!(not(feature = "edma34")) && self.is_bit(14)
     }
     /// Indicates the channel number
     #[inline(always)]
