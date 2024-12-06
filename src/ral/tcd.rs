@@ -281,9 +281,11 @@ pub(crate) mod edma34 {
         /// on eDMA3. We don't need it right now.
         _mattr: u32,
         pub TCD: super::RegisterBlock,
+        _reserved: [u8; 0x1_0000 - (4 * 8 + size_of::<super::RegisterBlock>())],
     }
 
     const _: () = assert!(core::mem::offset_of!(RegisterBlock, TCD) == 0x20);
+    const _: () = assert!(size_of::<RegisterBlock>() == 0x1_0000);
 
     pub mod CSR {
         pub mod ACTIVE {
