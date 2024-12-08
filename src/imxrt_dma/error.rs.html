@@ -163,17 +163,17 @@
     <span class="doccomment">/// Indicates if the transfer was cancelled
     </span><span class="attr">#[inline(always)]
     </span><span class="kw">pub const fn </span>is_cancelled(<span class="self">self</span>) -&gt; bool {
-        <span class="macro">cfg!</span>(not(feature = <span class="string">"edma34"</span>)) &amp;&amp; <span class="self">self</span>.is_bit(<span class="number">16</span>)
+        <span class="self">self</span>.is_bit(<span class="number">16</span>)
     }
     <span class="doccomment">/// Indicates a group priority error
     </span><span class="attr">#[inline(always)]
     </span><span class="kw">pub const fn </span>is_group_priority(<span class="self">self</span>) -&gt; bool {
-        <span class="macro">cfg!</span>(not(feature = <span class="string">"edma34"</span>)) &amp;&amp; <span class="self">self</span>.is_bit(<span class="number">15</span>)
+        <span class="self">self</span>.is_bit(<span class="number">15</span>)
     }
     <span class="doccomment">/// Indicates a channel priority error
     </span><span class="attr">#[inline(always)]
     </span><span class="kw">pub const fn </span>is_channel_priority(<span class="self">self</span>) -&gt; bool {
-        <span class="macro">cfg!</span>(not(feature = <span class="string">"edma34"</span>)) &amp;&amp; <span class="self">self</span>.is_bit(<span class="number">14</span>)
+        <span class="self">self</span>.is_bit(<span class="number">14</span>)
     }
     <span class="doccomment">/// Indicates the channel number
     </span><span class="attr">#[inline(always)]
