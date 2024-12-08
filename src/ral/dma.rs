@@ -1,5 +1,7 @@
 //! DMA register blocks and fields
 
+#![allow(non_snake_case, non_upper_case_globals)]
+
 use super::{tcd, RORegister, RWRegister, WORegister};
 
 /// eDMA controller representation.
@@ -107,6 +109,19 @@ pub(crate) mod edma3 {
     //
     // That means the difference is...
     const _: () = assert!(core::mem::offset_of!(RegisterBlock, TCD) == 0x1_0000);
+
+    /// Control and status.
+    pub mod CSR {
+        /// Global master ID replication control.
+        pub mod GMRC {
+            pub const offset: u32 = 7;
+            pub const mask: u32 = 1 << offset;
+
+            pub mod R {}
+            pub mod W {}
+            pub mod RW {}
+        }
+    }
 }
 
 /// eDMA4 controller representation.
@@ -140,4 +155,6 @@ pub(crate) mod edma4 {
     // Assuming the user provides the proper eDMA4 pointer, that means the
     // difference is...
     const _: () = assert!(core::mem::offset_of!(RegisterBlock, TCD) == 0x1_0000);
+
+    pub use super::edma3::CSR;
 }

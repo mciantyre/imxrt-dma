@@ -312,4 +312,30 @@ pub(crate) mod edma34 {
             pub mod RW {}
         }
     }
+
+    pub mod SBR {
+        pub mod EMI {
+            pub const offset: u32 = 16;
+            pub const mask: u32 = 1 << offset;
+            pub mod R {}
+            pub mod W {}
+            pub mod RW {}
+        }
+
+        pub mod PAL {
+            pub const offset: u32 = 15;
+            pub const mask: u32 = 1 << offset;
+            pub mod R {}
+            pub mod W {}
+            pub mod RW {}
+        }
+
+        pub mod SEC {
+            pub const offset: u32 = 14;
+            pub const mask: u32 = 1 << offset;
+            pub mod R {}
+            pub mod W {}
+            pub mod RW {}
+        }
+    }
 }

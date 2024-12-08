@@ -154,6 +154,25 @@ impl<const CHANNELS: usize> Dma<CHANNELS> {
             wakers: [NO_WAKER; CHANNELS],
         }
     }
+
+    /// Propagate the ID of the bus controller through each DMA channel.
+    ///
+    /// This is off by default. When it's off, the DMA controller uses nonsecure
+    /// privilege to perform transfers.
+    ///
+    /// When it's on, each DMA channel adopts the domain ID of the bus that
+    /// programs the channel. That's likely the CPU's domain ID.
+    #[cfg(feature = "edma34")]
+    pub unsafe fn set_global_id_replication(&self, enable: bool) {
+        match &self.controller {
+            ral::Kind::EDma3(edma3) => {
+                ral::modify_reg!(ral::dma::edma3, edma3, CSR, GMRC: enable as u32)
+            }
+            ral::Kind::EDma4(edma4) => {
+                ral::modify_reg!(ral::dma::edma4, edma4, CSR, GMRC: enable as u32)
+            }
+        }
+    }
 }
 
 use interrupt::{SharedWaker, NO_WAKER};
