@@ -142,4 +142,29 @@ impl Channel {
     pub(super) fn error_status_impl(&self) -> Error {
         Error::new(self.channel_registers().ES.read())
     }
+
+    /// Adopt and use the domain ID of the bus controller to perform access.
+    ///
+    /// Only matters if the global ID replication is enabled in the DMA controller.
+    pub fn set_id_replication(&mut self, enable: bool) {
+        let chan = self.channel_registers();
+        ral::modify_reg!(crate::ral::tcd::edma34, chan, SBR, EMI: enable as u32);
+    }
+
+    /// Promote the channel's protection level to privileged.
+    ///
+    /// If not enabled, the privilege level is nonprivilaged, or
+    /// "user protection."
+    pub fn set_privilege_protection(&mut self, enable: bool) {
+        let chan = self.channel_registers();
+        ral::modify_reg!(crate::ral::tcd::edma34, chan, SBR, PAL: enable as u32);
+    }
+
+    /// Promote the channel's protection level to sercure.
+    ///
+    /// If not enabled, accesses adopt nonsecure protection.
+    pub fn set_secure_protection(&mut self, enable: bool) {
+        let chan = self.channel_registers();
+        ral::modify_reg!(crate::ral::tcd::edma34, chan, SBR, SEC: enable as u32);
+    }
 }
