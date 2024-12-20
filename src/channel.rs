@@ -224,8 +224,7 @@ impl Channel {
 
     /// Set the DMAMUX channel configuration
     ///
-    /// See the [`Configuration`](crate::channel::Configuration) documentation
-    /// for more information.
+    /// See the [`Configuration`] documentation for more information.
     ///
     /// # Panics
     ///

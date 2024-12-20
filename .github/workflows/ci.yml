@@ -8,51 +8,32 @@ jobs:
   format:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v2
-    - uses: actions-rs/toolchain@v1
-      with:
-        toolchain: stable
-        components: rustfmt
-        override: true
-        profile: minimal
+    - uses: actions/checkout@v4
+    - run: rustup toolchain install stable --no-self-update --profile minimal --component rustfmt
     - name: Check library formatting
-      uses: actions-rs/cargo@v1
-      with:
-        command: fmt
-        args: --verbose -- --check
+      run: cargo fmt --check --all
   
   # Lint the library
   clippy:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v2
-    - uses: actions-rs/toolchain@v1
-      with:
-        toolchain: stable
-        components: clippy
-        override: true
-        profile: minimal
-    - uses: actions-rs/clippy-check@v1
-      with:
-        token: ${{ secrets.GITHUB_TOKEN }}
-        args: --verbose -- -D warnings
-        name: Lint the library
-    - uses: actions-rs/clippy-check@v1
-      with:
-        token: ${{ secrets.GITHUB_TOKEN }}
-        args: --verbose --features=edma34 -- -D warnings
-        name: Lint the library with eDMA34
+    - uses: actions/checkout@v4
+    - run: rustup toolchain install stable --no-self-update --profile minimal --component clippy
+    - name: Lint the library
+      run: cargo clippy -- -D warnings
+    - name: Lint the library with eDMA3/eDMA4
+      run: cargo clippy --features=edma34 -- -D warnings
 
   # Run tests
   test:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v4
+    - run: rustup toolchain install stable --no-self-update --profile minimal
     - name: Run unit and documentation tests
-      uses: actions-rs/cargo@v1
-      with:
-        command: test
-        args: --verbose
+      run: cargo test
+    - name: Run unit and documentation tests with eDMA3/eDMA4
+      run: cargo test --features=edma34
 
   # Make sure documentation builds, and doclinks are valid
   doc:
@@ -60,8 +41,9 @@ jobs:
       RUSTDOCFLAGS: -D warnings
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v4
+    - run: rustup toolchain install stable --no-self-update --profile minimal
     - name: Check documentation and doclinks
-      uses: actions-rs/cargo@v1
-      with:
-        command: rustdoc
+      run: cargo rustdoc
+    - name: Check documentation and doclinks with eDMA3/eDMA4
+      run: cargo rustdoc --features=edma34
