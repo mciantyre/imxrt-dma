@@ -12,7 +12,7 @@ use core::{
 
 use cortex_m::interrupt::{self, Mutex};
 
-impl<const CHANNELS: usize> super::Dma<CHANNELS> {
+impl<const DMA_INST: u8, const CHANNELS: usize> super::Dma<DMA_INST, CHANNELS> {
     /// Handle a DMA interrupt
     ///
     /// Checks the interrupt status for the channel identified by `channel`.
@@ -110,19 +110,19 @@ pub(crate) const NO_WAKER: SharedWaker = Mutex::new(RefCell::new(None));
 /// unsafe { Transfer::new(&my_channel) }.await?;
 /// # Ok(()) }
 /// ```
-pub struct Transfer<'a> {
-    channel: &'a Channel,
+pub struct Transfer<'a, const DMA_INST: u8> {
+    channel: &'a Channel<DMA_INST>,
     _pinned: PhantomPinned,
 }
 
-impl<'a> Transfer<'a> {
+impl<'a, const DMA_INST: u8> Transfer<'a, DMA_INST> {
     /// Create a new `Transfer` that performs the DMA transfer described by `channel`
     ///
     /// # Safety
     ///
     /// Assumes that the transfer is correctly defined in the DMA channel memory.
     /// The transfer enables after the first call to `poll()`.
-    pub unsafe fn new(channel: &'a Channel) -> Self {
+    pub unsafe fn new(channel: &'a Channel<DMA_INST>) -> Self {
         Transfer {
             channel,
             _pinned: PhantomPinned,
@@ -130,7 +130,7 @@ impl<'a> Transfer<'a> {
     }
 }
 
-impl Future for Transfer<'_> {
+impl<const DMA_INST: u8> Future for Transfer<'_, DMA_INST> {
     type Output = Result<(), Error>;
     fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         interrupt::free(|cs| {
@@ -161,7 +161,7 @@ impl Future for Transfer<'_> {
     }
 }
 
-impl Drop for Transfer<'_> {
+impl<const DMA_INST: u8> Drop for Transfer<'_, DMA_INST> {
     fn drop(&mut self) {
         self.channel.disable();
         self.channel.clear_complete();

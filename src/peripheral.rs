@@ -97,18 +97,18 @@ pub unsafe trait Destination<E: Element> {
 /// The future resolves when the peripheral has provided all
 /// expected data. Use [`read()`](crate::peripheral::read) to construct
 /// this future.
-pub struct Read<'a, S, E>
+pub struct Read<'a, S, E, const DMA_INST: u8>
 where
     S: Source<E>,
     E: Element,
 {
-    channel: &'a Channel,
+    channel: &'a Channel<DMA_INST>,
     source: &'a mut S,
-    transfer: Transfer<'a>,
+    transfer: Transfer<'a, DMA_INST>,
     _elem: PhantomData<&'a mut E>,
 }
 
-impl<S, E> Future for Read<'_, S, E>
+impl<S, E, const DMA_INST: u8> Future for Read<'_, S, E, DMA_INST>
 where
     S: Source<E>,
     E: Element,
@@ -120,7 +120,7 @@ where
     }
 }
 
-impl<S, E> Drop for Read<'_, S, E>
+impl<S, E, const DMA_INST: u8> Drop for Read<'_, S, E, DMA_INST>
 where
     S: Source<E>,
     E: Element,
@@ -132,8 +132,11 @@ where
     }
 }
 
-fn prepare_read<S, E>(channel: &mut Channel, source: &mut S, buffer: &mut [E])
-where
+fn prepare_read<S, E, const DMA_INST: u8>(
+    channel: &mut Channel<DMA_INST>,
+    source: &mut S,
+    buffer: &mut [E],
+) where
     S: Source<E>,
     E: Element,
 {
@@ -198,11 +201,11 @@ where
 /// ).await?;
 /// # Ok(()) }
 /// ```
-pub fn read<'a, S, E>(
-    channel: &'a mut Channel,
+pub fn read<'a, S, E, const DMA_INST: u8>(
+    channel: &'a mut Channel<DMA_INST>,
     source: &'a mut S,
     buffer: &'a mut [E],
-) -> Read<'a, S, E>
+) -> Read<'a, S, E, DMA_INST>
 where
     S: Source<E>,
     E: Element,
@@ -221,18 +224,18 @@ where
 ///
 /// The future resolves when the device has sent all provided data.
 /// Use [`write()`](crate::peripheral::write) to construct this future.
-pub struct Write<'a, D, E>
+pub struct Write<'a, D, E, const DMA_INST: u8>
 where
     D: Destination<E>,
     E: Element,
 {
-    channel: &'a Channel,
+    channel: &'a Channel<DMA_INST>,
     destination: &'a mut D,
-    transfer: Transfer<'a>,
+    transfer: Transfer<'a, DMA_INST>,
     _elem: PhantomData<&'a E>,
 }
 
-impl<D, E> Future for Write<'_, D, E>
+impl<D, E, const DMA_INST: u8> Future for Write<'_, D, E, DMA_INST>
 where
     D: Destination<E>,
     E: Element,
@@ -244,7 +247,7 @@ where
     }
 }
 
-impl<D, E> Drop for Write<'_, D, E>
+impl<D, E, const DMA_INST: u8> Drop for Write<'_, D, E, DMA_INST>
 where
     D: Destination<E>,
     E: Element,
@@ -256,8 +259,11 @@ where
     }
 }
 
-fn prepare_write<D, E>(channel: &mut Channel, buffer: &[E], destination: &mut D)
-where
+fn prepare_write<D, E, const DMA_INST: u8>(
+    channel: &mut Channel<DMA_INST>,
+    buffer: &[E],
+    destination: &mut D,
+) where
     D: Destination<E>,
     E: Element,
 {
@@ -322,11 +328,11 @@ where
 /// ).await?;
 /// # Ok(()) }
 /// ```
-pub fn write<'a, D, E>(
-    channel: &'a mut Channel,
+pub fn write<'a, D, E, const DMA_INST: u8>(
+    channel: &'a mut Channel<DMA_INST>,
     buffer: &'a [E],
     destination: &'a mut D,
-) -> Write<'a, D, E>
+) -> Write<'a, D, E, DMA_INST>
 where
     D: Destination<E>,
     E: Element,
@@ -361,16 +367,16 @@ pub unsafe trait Bidirectional<E: Element>: Source<E> + Destination<E> {}
 /// element by element. It yields when all elements are sent and received.
 ///
 /// To create this future, use [`full_duplex()`].
-pub struct FullDuplex<'a, P, E>
+pub struct FullDuplex<'a, P, E, const DMA_INST: u8>
 where
     P: Bidirectional<E>,
     E: Element,
 {
-    rx_channel: &'a Channel,
-    rx_transfer: Transfer<'a>,
+    rx_channel: &'a Channel<DMA_INST>,
+    rx_transfer: Transfer<'a, DMA_INST>,
     rx_done: bool,
-    tx_channel: &'a Channel,
-    tx_transfer: Transfer<'a>,
+    tx_channel: &'a Channel<DMA_INST>,
+    tx_transfer: Transfer<'a, DMA_INST>,
     tx_done: bool,
     peripheral: &'a mut P,
     _elem: PhantomData<E>,
@@ -437,12 +443,12 @@ where
 /// ).await?;
 /// # Ok(()) }
 /// ```
-pub fn full_duplex<'a, P, E>(
-    rx_channel: &'a mut Channel,
-    tx_channel: &'a mut Channel,
+pub fn full_duplex<'a, P, E, const DMA_INST: u8>(
+    rx_channel: &'a mut Channel<DMA_INST>,
+    tx_channel: &'a mut Channel<DMA_INST>,
     peripheral: &'a mut P,
     buffer: &'a mut [E],
-) -> FullDuplex<'a, P, E>
+) -> FullDuplex<'a, P, E, DMA_INST>
 where
     P: Bidirectional<E>,
     E: Element,
@@ -462,7 +468,7 @@ where
     }
 }
 
-impl<P, E> Future for FullDuplex<'_, P, E>
+impl<P, E, const DMA_INST: u8> Future for FullDuplex<'_, P, E, DMA_INST>
 where
     P: Bidirectional<E>,
     E: Element,
@@ -500,7 +506,7 @@ where
     }
 }
 
-impl<P, E> Drop for FullDuplex<'_, P, E>
+impl<P, E, const DMA_INST: u8> Drop for FullDuplex<'_, P, E, DMA_INST>
 where
     P: Bidirectional<E>,
     E: Element,

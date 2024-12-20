@@ -90,7 +90,11 @@ pub type Result<T> = core::result::Result<T, Error>;
 ///
 /// `Dma` allocates [`Channel`](channel::Channel)s. `Channel` provides
 /// the interface for scheduling transfers.
-pub struct Dma<const CHANNELS: usize> {
+///
+/// `DMA_INST` denotes the eDMA controller instance that you're using. For
+/// example, if you're using eDMA3, `DMA_INST` is `3`. If your eDMA instance
+/// doesn't have a number, set `DMA_INST` to `0`.
+pub struct Dma<const DMA_INST: u8, const CHANNELS: usize> {
     controller: ral::Kind,
     #[cfg(not(feature = "edma34"))]
     multiplexer: ral::Static<ral::dmamux::RegisterBlock>,
@@ -98,9 +102,10 @@ pub struct Dma<const CHANNELS: usize> {
 }
 
 // Safety: OK to allocate a DMA driver in a static context.
-unsafe impl<const CHANNELS: usize> Sync for Dma<CHANNELS> {}
+unsafe impl<const DMA_INST: u8, const CHANNELS: usize> Sync for Dma<DMA_INST, CHANNELS> {}
 
-impl<const CHANNELS: usize> Dma<CHANNELS> {
+#[cfg(not(feature = "edma34"))]
+impl<const CHANNELS: usize> Dma<0, CHANNELS> {
     /// Create the DMA driver.
     ///
     /// Note that this can evaluate at compile time. Consider using this to
@@ -120,7 +125,6 @@ impl<const CHANNELS: usize> Dma<CHANNELS> {
     /// An incorrect `CHANNELS` value prevents proper bounds checking when
     /// allocating channels. This may result in DMA channels that point to
     /// invalid memory.
-    #[cfg(not(feature = "edma34"))]
     pub const unsafe fn new(controller: *const (), multiplexer: *const ()) -> Self {
         Self {
             controller: ral::Kind::EDma(ral::Static(controller.cast())),
@@ -128,20 +132,26 @@ impl<const CHANNELS: usize> Dma<CHANNELS> {
             wakers: [NO_WAKER; CHANNELS],
         }
     }
+}
 
+#[cfg(feature = "edma34")]
+impl<const CHANNELS: usize> Dma<3, CHANNELS> {
     /// Create an eDMA3 driver.
     ///
     /// # Safety
     ///
     /// TODO
-    #[cfg(feature = "edma34")]
+
     pub const unsafe fn new_edma3(controller: *const ()) -> Self {
         Self {
             controller: ral::Kind::EDma3(ral::Static(controller.cast())),
             wakers: [NO_WAKER; CHANNELS],
         }
     }
+}
 
+#[cfg(feature = "edma34")]
+impl<const CHANNELS: usize> Dma<4, CHANNELS> {
     /// Create an eDMA3 driver.
     ///
     /// # Safety
@@ -154,7 +164,9 @@ impl<const CHANNELS: usize> Dma<CHANNELS> {
             wakers: [NO_WAKER; CHANNELS],
         }
     }
+}
 
+impl<const DMA_INST: u8, const CHANNELS: usize> Dma<DMA_INST, CHANNELS> {
     /// Propagate the ID of the bus controller through each DMA channel.
     ///
     /// This is off by default. When it's off, the DMA controller uses nonsecure

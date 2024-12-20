@@ -19,7 +19,7 @@ mod channel_impl;
 
 pub use channel_impl::Channel;
 
-impl Channel {
+impl<const DMA_INST: u8> Channel<DMA_INST> {
     /// Enable the DMA channel for transfers
     ///
     /// # Safety
@@ -327,7 +327,7 @@ impl Channel {
 // It's OK to send a channel across an execution context.
 // They can't be cloned or copied, so there's no chance of
 // them being (mutably) shared.
-unsafe impl Send for Channel {}
+unsafe impl<const DMA_INST: u8> Send for Channel<DMA_INST> {}
 
 /// DMAMUX channel configuration
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -386,7 +386,10 @@ impl Configuration {
 ///
 /// Caller must ensure that `hardware_source` is valid for the lifetime of the transfer,
 /// and valid for all subsequent transfers performed by this DMA channel with this address.
-pub unsafe fn set_source_hardware<E: Element>(chan: &mut Channel, hardware_source: *const E) {
+pub unsafe fn set_source_hardware<E: Element, const DMA_INST: u8>(
+    chan: &mut Channel<DMA_INST>,
+    hardware_source: *const E,
+) {
     chan.set_source_address(hardware_source);
     chan.set_source_offset(0);
     chan.set_source_attributes::<E>(0);
@@ -403,8 +406,8 @@ pub unsafe fn set_source_hardware<E: Element>(chan: &mut Channel, hardware_sourc
 ///
 /// Caller must ensure that `hardware_destination` is valid for the lifetime of the transfer,
 /// and valid for all subsequent transfers performed by this DMA channel with this address.
-pub unsafe fn set_destination_hardware<E: Element>(
-    chan: &mut Channel,
+pub unsafe fn set_destination_hardware<E: Element, const DMA_INST: u8>(
+    chan: &mut Channel<DMA_INST>,
     hardware_destination: *const E,
 ) {
     chan.set_destination_address(hardware_destination);
@@ -422,7 +425,10 @@ pub unsafe fn set_destination_hardware<E: Element>(
 ///
 /// Caller must ensure that the source is valid for the lifetime of the transfer,
 /// and valid for all subsequent transfers performed by this DMA channel with this buffer.
-pub unsafe fn set_source_linear_buffer<E: Element>(chan: &mut Channel, source: &[E]) {
+pub unsafe fn set_source_linear_buffer<E: Element, const DMA_INST: u8>(
+    chan: &mut Channel<DMA_INST>,
+    source: &[E],
+) {
     chan.set_source_address(source.as_ptr());
     chan.set_source_offset(core::mem::size_of::<E>() as i16);
     chan.set_source_attributes::<E>(0);
@@ -438,7 +444,10 @@ pub unsafe fn set_source_linear_buffer<E: Element>(chan: &mut Channel, source: &
 ///
 /// Caller must ensure that the destination is valid for the lifetime of the transfer,
 /// and valid for all subsequent transfers performed by this DMA channel with this buffer.
-pub unsafe fn set_destination_linear_buffer<E: Element>(chan: &mut Channel, destination: &mut [E]) {
+pub unsafe fn set_destination_linear_buffer<E: Element, const DMA_INST: u8>(
+    chan: &mut Channel<DMA_INST>,
+    destination: &mut [E],
+) {
     chan.set_destination_address(destination.as_ptr());
     chan.set_destination_offset(core::mem::size_of::<E>() as i16);
     chan.set_destination_attributes::<E>(0);
@@ -483,7 +492,10 @@ fn circular_buffer_modulo<E>(buffer: &[E]) -> u32 {
 ///
 /// - the capacity is not a power of two
 /// - the alignment is not a multiple of the buffer's size in bytes
-pub unsafe fn set_source_circular_buffer<E: Element>(chan: &mut Channel, source: &[E]) {
+pub unsafe fn set_source_circular_buffer<E: Element, const DMA_INST: u8>(
+    chan: &mut Channel<DMA_INST>,
+    source: &[E],
+) {
     circular_buffer_asserts(source);
     let modulo = circular_buffer_modulo(source);
 
@@ -509,8 +521,8 @@ pub unsafe fn set_source_circular_buffer<E: Element>(chan: &mut Channel, source:
 ///
 /// - the capacity is not a power of two
 /// - the alignment is not a multiple of the buffer's size in bytes
-pub unsafe fn set_destination_circular_buffer<E: Element>(
-    chan: &mut Channel,
+pub unsafe fn set_destination_circular_buffer<E: Element, const DMA_INST: u8>(
+    chan: &mut Channel<DMA_INST>,
     destination: &mut [E],
 ) {
     circular_buffer_asserts(destination);

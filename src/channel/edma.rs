@@ -5,7 +5,7 @@ use crate::{Error, SharedWaker};
 
 use super::Configuration;
 
-impl<const CHANNELS: usize> crate::Dma<CHANNELS> {
+impl<const DMA_INST: u8, const CHANNELS: usize> crate::Dma<DMA_INST, CHANNELS> {
     /// Creates the DMA channel described by `index`.
     ///
     /// # Safety
@@ -17,7 +17,7 @@ impl<const CHANNELS: usize> crate::Dma<CHANNELS> {
     /// # Panics
     ///
     /// Panics if `index` is greater than or equal to the maximum number of channels.
-    pub unsafe fn channel(&'static self, index: usize) -> Channel {
+    pub unsafe fn channel(&'static self, index: usize) -> Channel<DMA_INST> {
         assert!(index < CHANNELS);
         Channel {
             index,
@@ -37,7 +37,7 @@ impl<const CHANNELS: usize> crate::Dma<CHANNELS> {
 ///
 /// The `Channel` stores memory addresses independent of the memory lifetime. You must make
 /// sure that the channel's state is valid before enabling a transfer!
-pub struct Channel {
+pub struct Channel<const DMA_INST: u8> {
     /// Our channel number, expected to be between [0, 32)
     pub(super) index: usize,
     /// Reference to the DMA registers
@@ -48,7 +48,7 @@ pub struct Channel {
     pub(crate) waker: &'static SharedWaker,
 }
 
-impl Channel {
+impl<const DMA_INST: u8> Channel<DMA_INST> {
     pub(super) fn enable_impl(&self) {
         // Immutable write OK. No other methods directly modify ERQ.
         self.registers.SERQ.write(self.index as u8);
