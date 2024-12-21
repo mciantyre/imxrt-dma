@@ -9,7 +9,7 @@
 
 use super::{
     channel::{self, Channel, Configuration},
-    Element, Error, Transfer,
+    Element, Error, Transfer, WorksWith,
 };
 
 use core::{
@@ -207,7 +207,7 @@ pub fn read<'a, S, E, const DMA_INST: u8>(
     buffer: &'a mut [E],
 ) -> Read<'a, S, E, DMA_INST>
 where
-    S: Source<E>,
+    S: Source<E> + WorksWith<DMA_INST>,
     E: Element,
 {
     prepare_read(channel, source, buffer);
@@ -334,7 +334,7 @@ pub fn write<'a, D, E, const DMA_INST: u8>(
     destination: &'a mut D,
 ) -> Write<'a, D, E, DMA_INST>
 where
-    D: Destination<E>,
+    D: Destination<E> + WorksWith<DMA_INST>,
     E: Element,
 {
     prepare_write(channel, buffer, destination);
@@ -450,7 +450,7 @@ pub fn full_duplex<'a, P, E, const DMA_INST: u8>(
     buffer: &'a mut [E],
 ) -> FullDuplex<'a, P, E, DMA_INST>
 where
-    P: Bidirectional<E>,
+    P: Bidirectional<E> + WorksWith<DMA_INST>,
     E: Element,
 {
     prepare_write(tx_channel, buffer, peripheral);

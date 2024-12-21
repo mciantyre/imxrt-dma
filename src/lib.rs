@@ -188,3 +188,13 @@ impl<const DMA_INST: u8, const CHANNELS: usize> Dma<DMA_INST, CHANNELS> {
 }
 
 use interrupt::{SharedWaker, NO_WAKER};
+
+/// The implementing peripheral works with this DMA controller.
+///
+/// Implement this on your DMA-capable peripherals to assert that
+/// it is compatible with the given `DMA_INST`.
+///
+/// This trait is safe to implement. An incorrect implementation
+/// doesn't violate memory safety; instead, your DMA operation
+/// won't work.
+pub trait WorksWith<const DMA_INST: u8> {}
