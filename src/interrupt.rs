@@ -1,6 +1,9 @@
 //! DMA interrupt support
 
-use crate::{channel::Channel, Error};
+use crate::{
+    channel::{Channel, Configuration},
+    Error,
+};
 use core::{
     cell::RefCell,
     future::Future,
@@ -166,6 +169,7 @@ impl Drop for Transfer<'_> {
         self.channel.disable();
         self.channel.clear_complete();
         self.channel.clear_error();
+        self.channel.set_channel_configuration(Configuration::Off);
         interrupt::free(|cs| {
             let waker = self.channel.waker.borrow(cs);
             let mut waker = waker.borrow_mut();

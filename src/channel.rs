@@ -231,7 +231,7 @@ impl Channel {
     /// Only the first four DMA channels support periodic triggering from PIT timers. This method
     /// panics if `triggering` is set for the [`Enable`](crate::channel::Configuration)
     /// variant, but the channel does not support triggering.
-    pub fn set_channel_configuration(&mut self, configuration: Configuration) {
+    pub fn set_channel_configuration(&self, configuration: Configuration) {
         self.set_channel_configuration_impl(configuration);
     }
 

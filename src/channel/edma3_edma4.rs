@@ -67,7 +67,7 @@ impl Channel {
         }
     }
 
-    pub(super) fn set_channel_configuration_impl(&mut self, configuration: Configuration) {
+    pub(super) fn set_channel_configuration_impl(&self, configuration: Configuration) {
         let source = match configuration {
             Configuration::Off => 0,
             Configuration::Enable { source } => source,

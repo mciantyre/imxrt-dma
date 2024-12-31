@@ -70,7 +70,7 @@ impl Channel {
         crate::ral::modify_reg!(crate::ral::tcd, tcd, CSR, BWC: raw);
     }
 
-    pub(super) fn set_channel_configuration_impl(&mut self, configuration: Configuration) {
+    pub(super) fn set_channel_configuration_impl(&self, configuration: Configuration) {
         // Immutable write OK. 32-bit store on configuration register.
         // eDMA3/4: Haven't found any equivalent to "always on." Doesn't seem
         // that the periodic request via PIT will apply, either.
