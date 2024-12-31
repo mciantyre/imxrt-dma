@@ -175,4 +175,11 @@ impl Channel {
         let chan = self.channel_registers();
         ral::modify_reg!(crate::ral::tcd::edma34, chan, SBR, SEC: enable as u32);
     }
+
+    pub(super) const fn controller_impl(&self) -> u8 {
+        match &self.registers {
+            Kind::EDma3(_) => 3,
+            Kind::EDma4(_) => 4,
+        }
+    }
 }

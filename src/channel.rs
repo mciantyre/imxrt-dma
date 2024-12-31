@@ -321,6 +321,12 @@ impl Channel {
         let tcd = self.tcd();
         ral::modify_reg!(crate::ral::tcd, tcd, CSR, START: 1);
     }
+
+    /// Check for DMA controller compatibility.
+    pub const fn is_compatible(&self, compat: ControllerCompat) -> bool {
+        let controller_id = self.controller_impl();
+        compat.works_with(controller_id)
+    }
 }
 
 // It's OK to send a channel across an execution context.
@@ -548,4 +554,83 @@ pub unsafe fn set_destination_circular_buffer<E: Element>(
     chan.set_destination_offset(core::mem::size_of::<E>() as i16);
     chan.set_destination_attributes::<E>(modulo as u8);
     chan.set_destination_last_address_adjustment(0);
+}
+
+/// Signals a peripheral's compatibility with a DMA controller.
+///
+/// Clients like of [`Source`] and [`Destination`] produce these
+/// values to indicate which DMA controller they work with. Transfers
+/// can check this value, along with their DMA channel's controllers,
+/// to ensure peripheral-to-controller compatibility.
+///
+/// [`Source`]: crate::peripheral::Source
+/// [`Destination`]: crate::peripheral::Destination
+#[derive(Debug, Clone, Copy)]
+pub struct ControllerCompat(u8);
+
+impl ControllerCompat {
+    /// The peripheral is compatible with all DMA controllers.
+    pub const fn all() -> Self {
+        ControllerCompat(u8::MAX)
+    }
+
+    /// The peripheral is compatible with the given DMA controllers.
+    ///
+    /// Duplicates are ignored, and order is irrelevant.
+    ///
+    /// # Panics
+    ///
+    /// The implementation assumes that you don't have more than 8 DMA
+    /// controllers. Panics if any `ctrls` is greater than 7.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use imxrt_dma::peripheral::ControllerCompat;
+    ///
+    /// let compat = ControllerCompat::with_controllers(&[3, 4]);
+    /// assert!(compat.works_with(3));
+    /// assert!(compat.works_with(4));
+    ///
+    /// assert!(!compat.works_with(0));
+    /// assert!(!compat.works_with(2));
+    /// assert!(!compat.works_with(5));
+    /// ```
+    ///
+    /// ```should_panic
+    /// # use imxrt_dma::peripheral::ControllerCompat;
+    /// let compat = ControllerCompat::with_controllers(&[8]);
+    /// ```
+    pub const fn with_controllers(ctrls: &[u8]) -> Self {
+        let mut mask = 0_u8;
+        let mut idx = 0;
+        while idx < ctrls.len() {
+            assert!(ctrls[idx] < 8);
+            mask |= 1 << ctrls[idx];
+            idx += 1;
+        }
+        Self(mask)
+    }
+
+    /// Returns `true` if a DMA controller `ctrl` is compatible with this
+    /// peripheral.
+    ///
+    /// This may return `false` for DMA controllers that are believed
+    /// to be unavailable. For example,
+    ///
+    /// ```
+    /// # use imxrt_dma::peripheral::ControllerCompat;
+    /// let compat = ControllerCompat::all();
+    /// assert!(
+    ///     !compat.works_with(255),
+    ///     "No MCU has 256 DMA controllers...",
+    /// );
+    /// assert!(
+    ///     compat.works_with(7),
+    ///     "... but maybe there's an MCU with 8 DMA controllers",
+    /// );
+    /// ```
+    pub const fn works_with(&self, ctrl: u8) -> bool {
+        ctrl < 8 && (self.0 & (1 << ctrl) != 0)
+    }
 }

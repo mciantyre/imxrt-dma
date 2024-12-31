@@ -156,4 +156,19 @@ impl Channel {
     pub(super) fn error_status_impl(&self) -> Error {
         Error::new(self.registers.ES.read())
     }
+
+    /// Returns `0` as the controller implementation.
+    ///
+    /// Even though 1160 and 1170 MCUs have two DMA controllers, eDMA0
+    /// and eDMA1 (CM7 and CM4 LPSR domains, respectively), each DMA
+    /// controller can reach all peripherals. See chapter 4.4 of the
+    /// 1170 RM for details.
+    ///
+    /// It would be formally correct to return a `1` here for the eDMA1
+    /// instance, but the DMA construction API in this package doesn't let
+    /// users differentiate between eDMA0 and eDMA1. We could change this
+    /// later without affecting correctness.
+    pub(super) const fn controller_impl(&self) -> u8 {
+        0
+    }
 }

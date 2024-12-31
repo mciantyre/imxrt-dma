@@ -11,6 +11,7 @@ use super::{
     channel::{self, Channel, Configuration},
     Element, Error, Transfer,
 };
+pub use crate::channel::ControllerCompat;
 
 use core::{
     future::Future,
@@ -55,6 +56,15 @@ pub unsafe trait Source<E: Element> {
     ///
     /// This may include undoing the actions in `enable_source`.
     fn disable_source(&mut self);
+
+    /// Signals which DMA controller can use this source peripheral.
+    ///
+    /// By default, a peripheral is compatible with all DMA controllers.
+    /// Usually, a source's compatibility is the same as a destinations's
+    /// compatibility, but this isn't expected nor required.
+    fn source_controller_compatibility(&self) -> ControllerCompat {
+        ControllerCompat::all()
+    }
 }
 
 /// A peripheral that can be the destination for DMA data
@@ -90,6 +100,15 @@ pub unsafe trait Destination<E: Element> {
     ///
     /// This may include undoing the actions in `enable_destination`.
     fn disable_destination(&mut self);
+
+    /// Signals which DMA controller can use this destination peripheral.
+    ///
+    /// By default, a peripheral is compatible with all DMA controllers.
+    /// Usually, a destination's compatibility is the same as a source's
+    /// compatibility, but this isn't expected nor required.
+    fn destination_controller_compatibility(&self) -> ControllerCompat {
+        ControllerCompat::all()
+    }
 }
 
 /// A DMA transfer that receives data from hardware
@@ -132,7 +151,11 @@ where
     }
 }
 
-fn prepare_read<S, E>(channel: &mut Channel, source: &mut S, buffer: &mut [E])
+fn prepare_read<S, E>(
+    channel: &mut Channel,
+    source: &mut S,
+    buffer: &mut [E],
+) -> Result<(), PeripheralError>
 where
     S: Source<E>,
     E: Element,
@@ -140,9 +163,7 @@ where
     channel.disable();
 
     channel.set_disable_on_completion(true);
-    channel
-        .set_channel_configuration(Configuration::enable(source.source_signal()))
-        .unwrap();
+    channel.set_channel_configuration(Configuration::enable(source.source_signal()))?;
     // Safety: hardware source address must be valid, otherwise impl is unsound.
     // Destination buffer lifetime captured by future. The combination of minor
     // loops and transfer iterations ensure that we do not exceed the end of the
@@ -155,17 +176,13 @@ where
     }
 
     source.enable_source();
+    Ok(())
 }
 
 /// Use a DMA channel to receive a `buffer` of elements from the source peripheral.
 ///
 /// Consider using a DMA interrupt handler that calls [`on_interrupt()`](crate::Dma::on_interrupt)
 /// to wake the executor when the transfer completes. Otherwise, poll the future.
-///
-/// # Panics
-///
-/// This might panic if the peripheral's source signal is already associated with another DMA
-/// channel.
 ///
 /// # Example
 ///
@@ -202,26 +219,27 @@ where
 ///     &mut channel_7,
 ///     &mut lpuart,
 ///     &mut buffer,
-/// ).await?;
+/// ).unwrap().await?;
 /// # Ok(()) }
 /// ```
 pub fn read<'a, S, E>(
     channel: &'a mut Channel,
     source: &'a mut S,
     buffer: &'a mut [E],
-) -> Read<'a, S, E>
+) -> Result<Read<'a, S, E>, PeripheralError>
 where
     S: Source<E>,
     E: Element,
 {
-    prepare_read(channel, source, buffer);
-    Read {
+    check_controller_compat(channel, source.source_controller_compatibility())?;
+    prepare_read(channel, source, buffer)?;
+    Ok(Read {
         channel,
         // Safety: transfer is correctly defined
         transfer: unsafe { Transfer::new(channel) },
         source,
         _elem: PhantomData,
-    }
+    })
 }
 
 /// A DMA transfer that sends data to hardware
@@ -263,16 +281,18 @@ where
     }
 }
 
-fn prepare_write<D, E>(channel: &mut Channel, buffer: &[E], destination: &mut D)
+fn prepare_write<D, E>(
+    channel: &mut Channel,
+    buffer: &[E],
+    destination: &mut D,
+) -> Result<(), PeripheralError>
 where
     D: Destination<E>,
     E: Element,
 {
     channel.disable();
     channel.set_disable_on_completion(true);
-    channel
-        .set_channel_configuration(Configuration::enable(destination.destination_signal()))
-        .unwrap();
+    channel.set_channel_configuration(Configuration::enable(destination.destination_signal()))?;
     // Safety: hardware address must be valid, otherwise impl is unsound.
     // Source buffer lifetime captured by future. The combination of minor
     // loops and transfer iterations ensure that we do not exceed the end of the
@@ -285,17 +305,13 @@ where
     }
 
     destination.enable_destination();
+    Ok(())
 }
 
 /// Use a DMA channel to send a `buffer` of data to the destination peripheral.
 ///
 /// Consider using a DMA interrupt handler that calls [`on_interrupt()`](crate::Dma::on_interrupt)
 /// to wake the executor when the transfer completes. Otherwise, poll the future.
-///
-/// # Panics
-///
-/// This might panic if the peripheral's destination signal is associated with
-/// another DMA channel.
 ///
 /// # Example
 ///
@@ -333,26 +349,27 @@ where
 ///     &mut channel_7,
 ///     &buffer,
 ///     &mut lpuart,
-/// ).await?;
+/// ).unwrap().await?;
 /// # Ok(()) }
 /// ```
 pub fn write<'a, D, E>(
     channel: &'a mut Channel,
     buffer: &'a [E],
     destination: &'a mut D,
-) -> Write<'a, D, E>
+) -> Result<Write<'a, D, E>, PeripheralError>
 where
     D: Destination<E>,
     E: Element,
 {
-    prepare_write(channel, buffer, destination);
-    Write {
+    check_controller_compat(channel, destination.destination_controller_compatibility())?;
+    prepare_write(channel, buffer, destination)?;
+    Ok(Write {
         channel,
         destination,
         // Safety: transfer is correctly defined
         transfer: unsafe { Transfer::new(channel) },
         _elem: PhantomData,
-    }
+    })
 }
 
 /// Indicates that a peripheral can read and write from a single buffer
@@ -395,11 +412,6 @@ where
 ///
 /// Consider using a DMA interrupt handler that calls [`on_interrupt()`](crate::Dma::on_interrupt)
 /// to wake the executor when the transfer completes. Otherwise, poll the future.
-///
-/// # Panics
-///
-/// This may panic if the either the peripheral's source or destination signals are associated with
-/// any other DMA channels.
 ///
 /// # Example
 ///
@@ -453,7 +465,7 @@ where
 ///     &mut channel_8,
 ///     &mut lpspi,
 ///     &mut buffer,
-/// ).await?;
+/// ).unwrap().await?;
 /// # Ok(()) }
 /// ```
 pub fn full_duplex<'a, P, E>(
@@ -461,15 +473,21 @@ pub fn full_duplex<'a, P, E>(
     tx_channel: &'a mut Channel,
     peripheral: &'a mut P,
     buffer: &'a mut [E],
-) -> FullDuplex<'a, P, E>
+) -> Result<FullDuplex<'a, P, E>, PeripheralError>
 where
     P: Bidirectional<E>,
     E: Element,
 {
-    prepare_write(tx_channel, buffer, peripheral);
-    prepare_read(rx_channel, peripheral, buffer);
+    check_controller_compat(rx_channel, peripheral.source_controller_compatibility())?;
+    check_controller_compat(
+        tx_channel,
+        peripheral.destination_controller_compatibility(),
+    )?;
 
-    FullDuplex {
+    prepare_write(tx_channel, buffer, peripheral)?;
+    prepare_read(rx_channel, peripheral, buffer)?;
+
+    Ok(FullDuplex {
         rx_channel,
         rx_transfer: unsafe { Transfer::new(rx_channel) },
         rx_done: false,
@@ -478,7 +496,7 @@ where
         tx_done: false,
         peripheral,
         _elem: PhantomData,
-    }
+    })
 }
 
 impl<P, E> Future for FullDuplex<'_, P, E>
@@ -531,4 +549,31 @@ where
         while self.rx_channel.is_hardware_signaling() {}
         // Drop the transfers to finish cancellation...
     }
+}
+
+/// Something went wrong when preparing a peripheral transfer.
+#[derive(Debug, Clone)]
+pub enum PeripheralError {
+    /// The DMA controller is incompatible with this peripheral.
+    ///
+    /// To resolve this error, select a DMA channel from a DMA controller
+    /// that's compatible with this peripheral.
+    ControllerIncompatible,
+    /// The implementation failed to configure a DMA channel.
+    Configuration(crate::channel::ConfigurationError),
+}
+
+impl From<crate::channel::ConfigurationError> for PeripheralError {
+    fn from(value: crate::channel::ConfigurationError) -> Self {
+        Self::Configuration(value)
+    }
+}
+
+fn check_controller_compat(
+    chan: &Channel,
+    compat: ControllerCompat,
+) -> Result<(), PeripheralError> {
+    chan.is_compatible(compat)
+        .then_some(())
+        .ok_or(PeripheralError::ControllerIncompatible)
 }
