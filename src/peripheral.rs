@@ -140,7 +140,9 @@ where
     channel.disable();
 
     channel.set_disable_on_completion(true);
-    channel.set_channel_configuration(Configuration::enable(source.source_signal()));
+    channel
+        .set_channel_configuration(Configuration::enable(source.source_signal()))
+        .unwrap();
     // Safety: hardware source address must be valid, otherwise impl is unsound.
     // Destination buffer lifetime captured by future. The combination of minor
     // loops and transfer iterations ensure that we do not exceed the end of the
@@ -159,6 +161,11 @@ where
 ///
 /// Consider using a DMA interrupt handler that calls [`on_interrupt()`](crate::Dma::on_interrupt)
 /// to wake the executor when the transfer completes. Otherwise, poll the future.
+///
+/// # Panics
+///
+/// This might panic if the peripheral's source signal is already associated with another DMA
+/// channel.
 ///
 /// # Example
 ///
@@ -263,7 +270,9 @@ where
 {
     channel.disable();
     channel.set_disable_on_completion(true);
-    channel.set_channel_configuration(Configuration::enable(destination.destination_signal()));
+    channel
+        .set_channel_configuration(Configuration::enable(destination.destination_signal()))
+        .unwrap();
     // Safety: hardware address must be valid, otherwise impl is unsound.
     // Source buffer lifetime captured by future. The combination of minor
     // loops and transfer iterations ensure that we do not exceed the end of the
@@ -282,6 +291,11 @@ where
 ///
 /// Consider using a DMA interrupt handler that calls [`on_interrupt()`](crate::Dma::on_interrupt)
 /// to wake the executor when the transfer completes. Otherwise, poll the future.
+///
+/// # Panics
+///
+/// This might panic if the peripheral's destination signal is associated with
+/// another DMA channel.
 ///
 /// # Example
 ///
@@ -381,6 +395,11 @@ where
 ///
 /// Consider using a DMA interrupt handler that calls [`on_interrupt()`](crate::Dma::on_interrupt)
 /// to wake the executor when the transfer completes. Otherwise, poll the future.
+///
+/// # Panics
+///
+/// This may panic if the either the peripheral's source or destination signals are associated with
+/// any other DMA channels.
 ///
 /// # Example
 ///

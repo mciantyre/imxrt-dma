@@ -225,14 +225,13 @@ impl Channel {
     /// Set the DMAMUX channel configuration
     ///
     /// See the [`Configuration`] documentation for more information.
-    ///
-    /// # Panics
-    ///
-    /// Only the first four DMA channels support periodic triggering from PIT timers. This method
-    /// panics if `triggering` is set for the [`Enable`](crate::channel::Configuration)
-    /// variant, but the channel does not support triggering.
-    pub fn set_channel_configuration(&self, configuration: Configuration) {
-        self.set_channel_configuration_impl(configuration);
+    /// Note that configurations depend on the targeted DMA controller,
+    /// and they may change based on feature selection.
+    pub fn set_channel_configuration(
+        &self,
+        configuration: Configuration,
+    ) -> Result<(), ConfigurationError> {
+        self.set_channel_configuration_impl(configuration)
     }
 
     /// Returns `true` if the DMA channel is receiving a service signal from hardware
@@ -342,12 +341,16 @@ pub enum Configuration {
         /// The DMA channel source (slot number)
         ///
         /// Specifies which DMA source is routed to the DMA channel.
+        /// If the source did not persist, the channel returns a
+        /// [`ConfigurationError::SourceCleared`].
         source: u32,
         /// Set the periodic triggering flag to schedule DMA transfers on PIT
         /// timer scheduling.
         ///
         /// `periodic` only works for the first four DMA channels, since
-        /// it corresponds to the PIT timers.
+        /// it corresponds to the PIT timers. If you try to enable periodic
+        /// on an unsupported channel, the channel returns a
+        /// [`ConfigurationError::PeriodicUnsupported`].
         #[cfg(not(feature = "edma34"))]
         periodic: bool,
     },
@@ -374,6 +377,31 @@ impl Configuration {
             periodic: false,
         }
     }
+}
+
+/// An error when setting channel configurations.
+///
+/// See [`Channel::set_channel_configuration`] for more information.
+#[derive(Debug, Clone)]
+#[non_exhaustive]
+pub enum ConfigurationError {
+    /// The peripheral source configuration did not persist.
+    ///
+    /// The DMA controller automatically cleared the source signal that
+    /// we tried to write. This can happen if the DMA controller observes
+    /// the peripheral source is already associated with *another* DMA
+    /// channel.
+    ///
+    /// This error can only appear when the configuration is
+    /// [`Configuration::Enable`].
+    SourceCleared,
+    /// This channel doesn't support periodic triggering.
+    ///
+    /// Only certain DMA channels can be triggered from a hardware timer,
+    /// like the PIT. This error can only appear when the configuration
+    /// is [`Configuration::Enable`] with `periodic == true`.
+    #[cfg(not(feature = "edma34"))]
+    PeriodicUnsupported,
 }
 
 /// Set a hardware peripheral as the source for a DMA transfer

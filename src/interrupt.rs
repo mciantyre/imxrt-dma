@@ -169,7 +169,10 @@ impl Drop for Transfer<'_> {
         self.channel.disable();
         self.channel.clear_complete();
         self.channel.clear_error();
-        self.channel.set_channel_configuration(Configuration::Off);
+        // Disabling configurations never fails.
+        self.channel
+            .set_channel_configuration(Configuration::Off)
+            .unwrap();
         interrupt::free(|cs| {
             let waker = self.channel.waker.borrow(cs);
             let mut waker = waker.borrow_mut();

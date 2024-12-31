@@ -3,7 +3,7 @@
 use crate::ral::{self, Kind};
 use crate::{Error, SharedWaker};
 
-use super::Configuration;
+use super::{Configuration, ConfigurationError};
 
 impl<const CHANNELS: usize> crate::Dma<CHANNELS> {
     /// Creates the DMA channel described by `index`.
@@ -67,13 +67,21 @@ impl Channel {
         }
     }
 
-    pub(super) fn set_channel_configuration_impl(&self, configuration: Configuration) {
+    pub(super) fn set_channel_configuration_impl(
+        &self,
+        configuration: Configuration,
+    ) -> Result<(), ConfigurationError> {
         let source = match configuration {
             Configuration::Off => 0,
             Configuration::Enable { source } => source,
         };
         let chan = self.channel_registers();
         ral::write_reg!(crate::ral::tcd::edma34, chan, MUX, source);
+
+        let actual = ral::read_reg!(crate::ral::tcd::edma34, chan, MUX);
+        (actual == source)
+            .then_some(())
+            .ok_or(ConfigurationError::SourceCleared)
     }
 
     pub(super) fn is_hardware_signaling_impl(&self) -> bool {

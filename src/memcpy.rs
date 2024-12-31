@@ -77,7 +77,11 @@ pub fn memcpy<'a, E: Element>(
     // explicit "start()" activation. This means we could express the transfer
     // as a series of major loops, each transferring sizeof(E) bytes in the minor
     // loop. TBD...
-    channel.set_channel_configuration(channel::Configuration::Off);
+    //
+    // Disabling configurations never fail.
+    channel
+        .set_channel_configuration(channel::Configuration::Off)
+        .unwrap();
 
     // Transfer all elements in a single major loop
     //

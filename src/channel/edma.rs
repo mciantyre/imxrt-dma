@@ -3,7 +3,7 @@
 use crate::ral::{self, dmamux, tcd::BandwidthControl, Static};
 use crate::{Error, SharedWaker};
 
-use super::Configuration;
+use super::{Configuration, ConfigurationError};
 
 impl<const CHANNELS: usize> crate::Dma<CHANNELS> {
     /// Creates the DMA channel described by `index`.
@@ -70,7 +70,10 @@ impl Channel {
         crate::ral::modify_reg!(crate::ral::tcd, tcd, CSR, BWC: raw);
     }
 
-    pub(super) fn set_channel_configuration_impl(&self, configuration: Configuration) {
+    pub(super) fn set_channel_configuration_impl(
+        &self,
+        configuration: Configuration,
+    ) -> Result<(), ConfigurationError> {
         // Immutable write OK. 32-bit store on configuration register.
         // eDMA3/4: Haven't found any equivalent to "always on." Doesn't seem
         // that the periodic request via PIT will apply, either.
@@ -83,19 +86,22 @@ impl Channel {
             Configuration::Enable { source, periodic } => {
                 let mut v = source | dmamux::RegisterBlock::ENBL;
                 if periodic {
-                    assert!(
-                        self.channel() < 4,
-                        "Requested DMA periodic triggering on an unsupported channel."
-                    );
+                    if self.channel() < 4 {
+                        return Err(ConfigurationError::PeriodicUnsupported);
+                    }
                     v |= dmamux::RegisterBlock::TRIG;
                 }
                 chcfg.write(v);
+                if chcfg.read() != v {
+                    return Err(ConfigurationError::SourceCleared);
+                }
             }
             Configuration::AlwaysOn => {
                 // See note in reference manual: when A_ON is high, SOURCE is ignored.
                 chcfg.write(dmamux::RegisterBlock::ENBL | dmamux::RegisterBlock::A_ON)
             }
-        }
+        };
+        Ok(())
     }
 
     pub(super) fn is_hardware_signaling_impl(&self) -> bool {
