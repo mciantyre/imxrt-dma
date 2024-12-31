@@ -44,8 +44,7 @@ pub struct Memcpy<'a, E> {
 /// }
 ///
 /// # async fn f() -> imxrt_dma::Result<()> {
-/// let mut channel_7: Channel = // DMA channel 7
-///     # unsafe { DMA.channel(7) };
+/// let mut channel_7: Channel = DMA.allocate_channel(7).unwrap();
 /// channel_7.set_interrupt_on_completion(true);
 /// // TODO unmask DMA7 interrupt!
 ///

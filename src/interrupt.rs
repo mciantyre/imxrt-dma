@@ -106,8 +106,7 @@ pub(crate) const NO_WAKER: SharedWaker = Mutex::new(RefCell::new(None));
 ///
 /// # static DMA: imxrt_dma::Dma<32> = unsafe { imxrt_dma::Dma::new(core::ptr::null(), core::ptr::null()) };
 /// # async fn f() -> imxrt_dma::Result<()> {
-/// let my_channel: Channel = // Acquire your channel...
-///     # unsafe { DMA.channel(0) };
+/// let my_channel: Channel = DMA.allocate_channel(0).unwrap();
 /// // Properly prepare your transfer...
 /// // Safety: transfer properly prepared
 /// unsafe { Transfer::new(&my_channel) }.await?;

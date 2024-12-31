@@ -17,7 +17,7 @@ impl<const CHANNELS: usize> crate::Dma<CHANNELS> {
     /// # Panics
     ///
     /// Panics if `index` is greater than or equal to the maximum number of channels.
-    pub unsafe fn channel(&'static self, index: usize) -> Channel {
+    pub(crate) unsafe fn channel(&'static self, index: usize) -> Channel {
         assert!(index < CHANNELS);
         Channel {
             index,

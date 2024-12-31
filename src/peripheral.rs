@@ -208,8 +208,7 @@ where
 /// # async fn f() -> imxrt_dma::Result<()> {
 /// let mut lpuart = // A LPUART peripheral
 ///     # X;
-/// let mut channel_7: Channel = // DMA channel 7
-///     # unsafe { DMA.channel(7) };
+/// let mut channel_7: Channel = DMA.allocate_channel(7).unwrap();
 /// channel_7.set_interrupt_on_completion(true);
 /// // TODO unmask interrupts in NVIC!
 ///
@@ -337,8 +336,7 @@ where
 /// # async fn f() -> imxrt_dma::Result<()> {
 /// let mut lpuart = // A LPUART peripheral
 ///     # X;
-/// let mut channel_7: Channel = // DMA channel 7
-///     # unsafe { DMA.channel(7) };
+/// let mut channel_7: Channel = DMA.allocate_channel(7).unwrap();
 ///
 /// channel_7.set_interrupt_on_completion(true);
 /// // TODO unmask interrupts in NVIC!
@@ -445,10 +443,8 @@ where
 /// # async fn f() -> imxrt_dma::Result<()> {
 /// let mut lpspi = // A LPSPI peripheral
 ///     # X;
-/// let mut channel_7: Channel = // DMA channel 7
-///     # unsafe { DMA.channel(7) };
-/// let mut channel_8: Channel = // DMA channel 8
-///     # unsafe { DMA.channel(8) };
+/// let mut channel_7: Channel = DMA.allocate_channel(7).unwrap();
+/// let mut channel_8: Channel = DMA.allocate_channel(8).unwrap();
 ///
 /// // Using channel_7 for the receive data. Once we've received
 /// // the last word from the LPSPI peripheral, generate an interrupt.

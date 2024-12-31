@@ -33,8 +33,7 @@
 //! // Safety: addresses and channel count are valid for this target.
 //! static DMA: Dma<32> = unsafe { Dma::new(DMA_PTR, DMAMUX_PTR) };
 //!
-//! // Safety: we only allocate one DMA channel 7 object.
-//! let mut channel = unsafe { DMA.channel(7) };
+//! let mut channel = DMA.allocate_channel(7).unwrap();
 //! ```
 //!
 //! Once you have a channel, you can use the higher-level DMA APIs, like
@@ -75,6 +74,8 @@ pub mod memcpy;
 pub mod peripheral;
 mod ral;
 
+use core::sync::atomic::{AtomicU32, Ordering};
+
 pub use element::Element;
 pub use error::Error;
 pub use interrupt::Transfer;
@@ -95,6 +96,7 @@ pub struct Dma<const CHANNELS: usize> {
     #[cfg(not(feature = "edma34"))]
     multiplexer: ral::Static<ral::dmamux::RegisterBlock>,
     wakers: [SharedWaker; CHANNELS],
+    allocated_channels: [AtomicU32; 2],
 }
 
 // Safety: OK to allocate a DMA driver in a static context.
@@ -126,6 +128,7 @@ impl<const CHANNELS: usize> Dma<CHANNELS> {
             controller: ral::Kind::EDma(ral::Static(controller.cast())),
             multiplexer: ral::Static(multiplexer.cast()),
             wakers: [NO_WAKER; CHANNELS],
+            allocated_channels: [const { AtomicU32::new(0) }; 2],
         }
     }
 
@@ -144,6 +147,7 @@ impl<const CHANNELS: usize> Dma<CHANNELS> {
         Self {
             controller: ral::Kind::EDma3(ral::Static(controller.cast())),
             wakers: [NO_WAKER; CHANNELS],
+            allocated_channels: [const { AtomicU32::new(0) }; 2],
         }
     }
 
@@ -162,6 +166,7 @@ impl<const CHANNELS: usize> Dma<CHANNELS> {
         Self {
             controller: ral::Kind::EDma4(ral::Static(controller.cast())),
             wakers: [NO_WAKER; CHANNELS],
+            allocated_channels: [const { AtomicU32::new(0) }; 2],
         }
     }
 
@@ -183,6 +188,99 @@ impl<const CHANNELS: usize> Dma<CHANNELS> {
             }
         }
     }
+
+    /// Allocate a DMA channel from this DMA controller.
+    ///
+    /// Returns `None` if the channel identified by `index` is already
+    /// allocated.
+    ///
+    /// ```
+    /// use imxrt_dma::Dma;
+    /// # const DMA_PTR: *const () = core::ptr::null() as _;
+    /// # const DMAMUX_PTR: *const () = core::ptr::null() as  _;
+    ///
+    /// // Safety: addresses and channel count are valid for this target.
+    /// static DMA: Dma<32> = unsafe { Dma::new(DMA_PTR, DMAMUX_PTR) };
+    ///
+    /// let mut channel = DMA.allocate_channel(7).unwrap();
+    /// assert!(DMA.allocate_channel(7).is_none());
+    ///
+    /// assert!(DMA.allocate_channel(32).is_none());
+    /// ```
+    ///
+    /// ```
+    /// use imxrt_dma::Dma;
+    /// # const DMA_PTR: *const () = core::ptr::null() as _;
+    /// # const DMAMUX_PTR: *const () = core::ptr::null() as  _;
+    ///
+    /// // Safety: addresses and channel count are valid for this target.
+    /// static DMA: Dma<64> = unsafe { Dma::new(DMA_PTR, DMAMUX_PTR) };
+    ///
+    /// let mut channel = DMA.allocate_channel(7).unwrap();
+    /// assert!(DMA.allocate_channel(7).is_none());
+    ///
+    /// assert!(DMA.allocate_channel(63).is_some());
+    /// assert!(DMA.allocate_channel(63).is_none());
+    /// assert!(DMA.allocate_channel(64).is_none());
+    /// ```
+    pub fn allocate_channel(&'static self, index: usize) -> Option<channel::Channel> {
+        (index < CHANNELS).then_some(())?;
+
+        let group = index / u32::BITS as usize;
+        let allocation_mask = self.allocated_channels.get(group)?;
+
+        let channel_mask = 1_u32 << (index % u32::BITS as usize);
+        if allocation_mask.fetch_or(channel_mask, Ordering::SeqCst) & channel_mask == 0 {
+            unsafe { Some(self.channel(index)) }
+        } else {
+            None
+        }
+    }
 }
 
 use interrupt::{SharedWaker, NO_WAKER};
+
+#[cfg(test)]
+mod tests {
+    use super::Dma;
+
+    macro_rules! allocate_n {
+        ($channels:expr) => {
+            // Safety: DMA controller is invalid. However, nothing in these tests will
+            // touch that state.
+            static DMA: Dma<$channels> = unsafe { Dma::new(core::ptr::null(), core::ptr::null()) };
+
+            assert!(DMA.allocate_channel($channels).is_none());
+            assert!(DMA.allocate_channel($channels + 1).is_none());
+            assert!(DMA.allocate_channel($channels + 17).is_none());
+
+            for index in 0..$channels {
+                let channel = DMA.allocate_channel(index).unwrap();
+                assert_eq!(channel.channel(), index);
+            }
+            for index in 0..$channels {
+                assert!(DMA.allocate_channel(index).is_none(), "{index}");
+            }
+        };
+    }
+
+    #[test]
+    fn allocate_32() {
+        allocate_n!(32);
+    }
+
+    #[test]
+    fn allocate_16() {
+        allocate_n!(16);
+    }
+
+    #[test]
+    fn allocate_64() {
+        allocate_n!(64);
+    }
+
+    #[test]
+    fn allocate_23() {
+        allocate_n!(23);
+    }
+}
